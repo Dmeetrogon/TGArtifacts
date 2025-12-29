@@ -19,6 +19,9 @@ class QtDataStreamReader:
             data: Binary data to parse
         """
         self.data = data
+
+
+
         self.offset = 0
 
     def read_uint32(self) -> int:
