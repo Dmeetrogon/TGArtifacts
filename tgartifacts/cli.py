@@ -31,14 +31,27 @@ def info(tdata_path: str, passcode: Optional[str]):
     try:
         parser = TDataParser(tdata_path, passcode)
 
-        # Find all accounts
-        accounts = parser.find_account_dirs()
-        click.echo(f"Found {len(accounts)} account(s):\n")
+        # Get all accounts info
+        accounts_info = parser.get_all_accounts_info()
+        click.echo(f"Found {len(accounts_info)} account(s):\n")
 
-        for account_dir in accounts:
-            click.echo(f"  {account_dir}")
+        for info_data in accounts_info:
+            click.echo(f"  Account: {info_data['account_dir']}")
 
-        click.echo()
+            if not info_data['success']:
+                click.secho(f"    Error: {info_data['error']}", fg='red')
+                continue
+
+            # Show basic info
+            if 'user_id' in info_data:
+                click.secho(f"    User ID: {info_data['user_id']}", fg='green')
+
+            if 'dc_id' in info_data:
+                click.echo(f"    DC ID: {info_data['dc_id']}")
+
+            passcode_status = "Yes" if info_data.get('has_passcode') else "No"
+            click.echo(f"    Passcode protected: {passcode_status}")
+            click.echo()
 
     except Exception as e:
         click.secho(f"Error: {e}", fg='red', err=True)
