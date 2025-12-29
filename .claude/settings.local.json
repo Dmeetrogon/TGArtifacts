@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venvScriptspip install -e .)",
+      "Bash(python -m pip install:*)",
+      "Bash(python -m tgartifacts.cli:*)",
+      "Bash(xxd:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebSearch",
+      "WebFetch(domain:ref.gotd.dev)",
+      "Bash(curl:*)",
+      "Bash(git clone:*)"
+    ]
+  }
+}
