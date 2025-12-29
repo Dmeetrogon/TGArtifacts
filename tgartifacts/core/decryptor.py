@@ -24,7 +24,7 @@ def prepare_aes_oldmtp(auth_key: bytes, msg_key: bytes) -> Tuple[bytes, bytes]:
     return aes_key, aes_iv
 
 
-def decrypt_local(encrypted_data: bytes, local_key: bytes) -> bytes:
+def decrypt_local_TDF(encrypted_data: bytes, local_key: bytes) -> bytes:
     """Decrypt local encrypted data.
 
     Based on ntqbit/tdesktop-decrypter implementation.

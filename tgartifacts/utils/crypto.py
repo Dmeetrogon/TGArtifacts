@@ -107,7 +107,7 @@ def get_local_key_from_key_datas(tdata_path: str, passcode: Optional[str] = None
         ValueError: If key_datas has invalid format or decryption fails
     """
     from ..utils.tdf import read_tdf
-    from ..core.decryptor import decrypt_local
+    from ..core.decryptor import decrypt_local_TDF
     from ..core.parser import QtDataStreamReader
 
     # Use empty string if no passcode provided
@@ -133,7 +133,7 @@ def get_local_key_from_key_datas(tdata_path: str, passcode: Optional[str] = None
 
     # Stage 1: Create passcode key and decrypt key_encrypted to get local_key
     passcode_key = create_local_key(passcode, salt, tdesktop_version)
-    local_key = decrypt_local(key_encrypted, passcode_key)
+    local_key = decrypt_local_TDF(key_encrypted, passcode_key)
 
     return local_key
 

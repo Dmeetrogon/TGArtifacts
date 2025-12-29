@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 from ..utils.tdf import read_tdf
-from .decryptor import decrypt_local
+from .decryptor import decrypt_local_TDF
 from .parser import QtDataStreamReader
 
 
@@ -58,7 +58,6 @@ class TDataParser:
             ValueError: If parsing fails
         """
         from ..utils.crypto import get_local_key_from_key_datas
-        from io import BytesIO
 
         # Account data file is in tdata directory, named {account_dir}s
         account_data_file = self.tdata_path / f"{account_dir}s"
@@ -80,7 +79,7 @@ class TDataParser:
             raise ValueError("Invalid account data file: no encrypted data found")
 
         try:
-            decrypted_data = decrypt_local(encrypted_data, self._local_key)
+            decrypted_data = decrypt_local_TDF(encrypted_data, self._local_key)
         except ValueError as e:
             raise ValueError(f"Failed to decrypt account data: {e}")
 
