@@ -1,12 +1,6 @@
 import hashlib
 from typing import Tuple
-
-try:
-    import tgcrypto
-except ImportError:
-    raise ImportError(
-        "Need tgcrypto. Installation: pip install tgcrypto"
-    )
+import tgcrypto
 
 
 def prepare_aes_oldmtp(auth_key: bytes, msg_key: bytes) -> Tuple[bytes, bytes]:
