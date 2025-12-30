@@ -73,10 +73,8 @@ def analyze(tdata_path: str, passcode: Optional[str], account: Optional[str], ou
     click.echo(f"Analyzing tdata: {tdata_path}")
 
     if passcode:
-        click.echo("Using passcode for decryption")
-
+        click.echo(f"Using passcode for decryption")
     click.echo()
-
     try:
         parser = TDataParser(tdata_path, passcode)
 
