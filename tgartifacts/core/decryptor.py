@@ -130,6 +130,5 @@ def decrypt_TDEF_file(file_path, local_key) -> bytes:
             new_iv,
             bytes(1)
         )
-
         return decrypted_data
         
