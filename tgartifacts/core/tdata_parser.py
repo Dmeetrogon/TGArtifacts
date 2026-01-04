@@ -1,9 +1,10 @@
 """Telegram Desktop tdata directory parser."""
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+import os
 
 from ..utils.tdf import read_tdf
-from .decryptor import decrypt_local_TDF
+from .decryptor import decrypt_local_TDF, get_TDEF_files
 from .parser import QtDataStreamReader
 
 
@@ -215,3 +216,54 @@ class TDataParser:
             results.append(info)
 
         return results
+
+    def find_cached_tdef_files(self) -> List[Path]:
+        """Find all cached TDEF files in media_cache directory.
+
+        Returns:
+            List of TDEF file paths
+        """
+        media_cache_path = self.tdata_path / 'user_data' / 'media_cache'
+
+        if not media_cache_path.exists():
+            return []
+
+        tdef_files = []
+        version_dirs = [d for d in media_cache_path.iterdir() if d.is_dir()]
+        if not version_dirs:
+            return []
+
+        cache_dir = version_dirs[0]
+        for subfolder in cache_dir.iterdir():
+            if not subfolder.is_dir():
+                continue
+            for file_path in subfolder.iterdir():
+                if file_path.is_file():
+                    tdef_files.append(file_path)
+
+        return tdef_files
+
+    def extract_cached_tdef_files(self, output_dir: str) -> Dict[str, Any]:
+        """Extract and decrypt cached TDEF files.
+
+        Args:
+            output_dir: Output directory for decrypted files
+
+        Returns:
+            Dictionary with extraction statistics
+
+        Raises:
+            ValueError: If local key is not available
+        """
+        if self._local_key is None:
+            # Try to get local key
+            from ..utils.crypto import get_local_key_from_key_datas
+            self._local_key = get_local_key_from_key_datas(str(self.tdata_path), self.passcode)
+
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Extract TDEF files
+        stats = get_TDEF_files(str(self.tdata_path), self._local_key, output_dir)
+
+        return stats

@@ -63,27 +63,44 @@ def decrypt_local_TDF(encrypted_data: bytes, local_key: bytes) -> bytes:
 
     return decrypted[4:length]
 
-def get_TETF_files(path_to_tdata,local_key,output_dir):
+def get_TDEF_files(path_to_tdata, local_key, output_dir):
+    """Extract and decrypt TDEF files from media cache.
+
+    Args:
+        path_to_tdata: Path to tdata directory
+        local_key: Local encryption key
+        output_dir: Output directory for decrypted files
+
+    Returns:
+        Dictionary with statistics about processed files
+    """
     path_to_tdata = Path(path_to_tdata)
     media_cache_path = path_to_tdata / 'user_data' / 'media_cache'
 
     version_dirs = [d for d in media_cache_path.iterdir() if d.is_dir()]
     if not version_dirs:
         raise FileNotFoundError("No directories found in media_cache")
+
     cache_dir = version_dirs[0]
+    stats = {'total': 0, 'success': 0, 'failed': 0}
+
     for subfolder in cache_dir.iterdir():
         if not subfolder.is_dir():
             continue
         for file_path in subfolder.iterdir():
             if file_path.is_file():
+                stats['total'] += 1
                 try:
-                    decrypted_data = decrypt_TDEF_file(file_path,local_key)
+                    decrypted_data = decrypt_TDEF_file(file_path, local_key)
                     output_path = Path(output_dir) / file_path.name
                     with open(output_path, 'wb') as out_file:
                         out_file.write(decrypted_data)
+                    stats['success'] += 1
                 except Exception as e:
                     print(f"Failed to decrypt {file_path}: {e}")
-        return {}
+                    stats['failed'] += 1
+
+    return stats
 
 
 def decrypt_TDEF_file(file_path, local_key) -> bytes:

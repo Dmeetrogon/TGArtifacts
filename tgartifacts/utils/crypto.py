@@ -3,137 +3,137 @@ import hashlib
 from pathlib import Path
 from typing import Optional, Tuple
 
-import tgcrypto
-
 from tgartifacts.core.parser import QtDataStreamReader
 from tgartifacts.utils.tdf import read_tdf
 
-def prepare_aes_oldmtp(auth_key: bytes, msg_key: bytes) -> Tuple[bytes, bytes]:
 
-    msg_key = msg_key[:16]
-
-    # For decryption, use offset x=8 (for send=False)
-    x = 8
-
-    sha1_a = hashlib.sha1(msg_key + auth_key[x:x+32]).digest()
-    sha1_b = hashlib.sha1(auth_key[x+32:x+48] + msg_key + auth_key[x+48:x+64]).digest()
-    sha1_c = hashlib.sha1(auth_key[x+64:x+96] + msg_key).digest()
-    sha1_d = hashlib.sha1(msg_key + auth_key[x+96:x+128]).digest()
-
-
-    aes_key = sha1_a[0:8] + sha1_b[8:20] + sha1_c[4:16]
-
-
-    aes_iv = sha1_a[8:20] + sha1_b[0:8] + sha1_c[16:20] + sha1_d[0:8]
-
-    return aes_key, aes_iv
-
-def decrypt_local_TDF(encrypted_data: bytes, local_key: bytes) -> bytes:
-    """Decrypt local encrypted data.
-
-    Based on ntqbit/tdesktop-decrypter implementation.
+def get_key_datas_version(tdata_path: str) -> Optional[int]:
+    """Get version from key_datas file.
 
     Args:
-        encrypted_data: Encrypted data (msg_key + encrypted_payload)
-        local_key: Local encryption key (256 bytes)
+        tdata_path: Path to tdata directory
 
     Returns:
-        Decrypted data (without length prefix)
+        Version number or None if file doesn't exist
     """
-    if len(encrypted_data) < 16:
-        raise ValueError("Encrypted data too small (minimum 16 bytes for msg_key)")
+    key_datas_path = os.path.join(tdata_path, 'key_datas')
+    if not os.path.exists(key_datas_path):
+        return None
 
-    msg_key = encrypted_data[:16]
-    encrypted_payload = encrypted_data[16:]
-
-    # Prepare AES key and IV
-    aes_key, aes_iv = prepare_aes_oldmtp(local_key, msg_key)
-
-    # Decrypt
-    decrypted = tgcrypto.ige256_decrypt(encrypted_payload, aes_key, aes_iv)
-
-    # Verify checksum
-    calculated_checksum = hashlib.sha1(decrypted).digest()[:16]
-
-    if calculated_checksum != msg_key:
-        raise ValueError(
-            "Decryption checksum mismatch. "
-            "Possible reasons: wrong localKey, corrupted data, wrong passcode"
-        )
-
-    # Extract actual data (skip 4-byte length prefix)
-    length = int.from_bytes(decrypted[:4], 'little')
-    if length > len(decrypted):
-        raise ValueError(f"Corrupted data. Wrong length: {length}")
-
-    return decrypted[4:length]
-
-def get_TETF_files(path_to_tdata,local_key,output_dir):
-    path_to_tdata = Path(path_to_tdata)
-    media_cache_path = path_to_tdata / 'user_data' / 'media_cache'
-
-    version_dirs = [d for d in media_cache_path.iterdir() if d.is_dir()]
-    if not version_dirs:
-        raise FileNotFoundError("No directories found in media_cache")
-    cache_dir = version_dirs[0]
-    for subfolder in cache_dir.iterdir():
-        if not subfolder.is_dir():
-            continue
-        for file_path in subfolder.iterdir():
-            if file_path.is_file():
-                try:
-                    decrypted_data = decrypt_TDEF_file(file_path,local_key)
-                    output_path = Path(output_dir) / file_path.name
-                    with open(output_path, 'wb') as out_file:
-                        out_file.write(decrypted_data)
-                except Exception as e:
-                    print(f"Failed to decrypt {file_path}: {e}")
-        return {}
+    try:
+        data = read_tdf(key_datas_path)
+        return data['version']
+    except:
+        return None
 
 
-def decrypt_TDEF_file(file_path, local_key) -> bytes:
-    with open(file_path, 'rb') as file:
-        magic_bytes = file.read(4)
-        if magic_bytes != b'TDEF':
-            raise ValueError(f"Invalid magic bytes. Expected b'TDEF', got {magic_bytes}")
-        salt = file.read(64)
-        if (len(salt)) != 64:
-            raise ValueError(f"Salt too short, expected 64 bytes, got {len(salt)} bytes")
-        encrypted_header = file.read(48)
-        if (len(encrypted_header)) != 48:
-            raise ValueError(f"Encrypted header too short, expected 48 bytes, got {len(encrypted_header)} bytes")
-        real_key = hashlib.sha256(
-            local_key[:128] + salt[:32]
-        ).digest()
-        iv = hashlib.sha256(
-            local_key[128:] + salt[32:64]
-        ).digest()[:16]
-        header_decrypted = tgcrypto.ctr256_decrypt(
-            encrypted_header,
-            real_key,
-            iv,
-            bytes(1)
-        )
-        data_part = header_decrypted[:16]
-        stored_checksum = header_decrypted[16:48]
+def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes:
+    """Create local key using PBKDF2.
 
-        expected_checksum = hashlib.sha256(
-            local_key + salt + data_part
-        ).digest()
+    Based on verified telegram2john.py from John the Ripper project.
+    Supports both old (< 2.1.14) and new (>= 2.1.14) Telegram Desktop versions.
 
-        if stored_checksum != expected_checksum:
-            raise ValueError("Checksum mismatch! Wrong key or corrupted file")
-        encrypted_data = file.read()
-        blocks_processed = len(encrypted_header) // 16
-        iv_int = int.from_bytes(iv, byteorder='big')
-        new_iv_int = (iv_int + blocks_processed) % (2 ** 128)
-        new_iv = new_iv_int.to_bytes(16, byteorder='big')
+    Args:
+        passcode: User passcode (empty string if no password)
+        salt: Salt for key derivation (32 bytes)
+        tdesktop_version: Telegram Desktop version number (e.g., 2001014 for v2.1.14)
 
-        decrypted_data = tgcrypto.ctr256_decrypt(
-            encrypted_data,
-            real_key,
-            new_iv,
-            bytes(1)
-        )
+    Returns:
+        Derived key bytes (136 bytes) for decrypting key_datas
 
-        return decrypted_data
+    References:
+        - https://github.com/openwall/john/blob/bleeding-jumbo/run/telegram2john.py
+        - https://github.com/openwall/john/issues/4387
+    """
+    # Constants from official Telegram Desktop
+    LocalEncryptIterCount = 4000           # Old versions WITH passcode
+    LocalEncryptNoPwdIterCount = 4         # Old versions WITHOUT passcode
+    kStrongIterationsCount = 100000        # New versions WITH passcode
+
+    # OLD ALGORITHM (Telegram Desktop < 2.1.14, AppVersion < 2001014)
+    if tdesktop_version < 2001014:
+        if not passcode:
+            # No passcode: PBKDF2-SHA1 with 4 iterations
+            return hashlib.pbkdf2_hmac(
+                'sha1',
+                b'',
+                salt,
+                LocalEncryptNoPwdIterCount,
+                136
+            )
+        else:
+            # With passcode: PBKDF2-SHA1 with 4000 iterations
+            return hashlib.pbkdf2_hmac(
+                'sha1',
+                passcode.encode('utf-8'),
+                salt,
+                LocalEncryptIterCount,
+                136
+            )
+    # NEW ALGORITHM (Telegram Desktop >= 2.1.14, AppVersion >= 2001014)
+    else:
+        if not passcode:
+            # No passcode: SHA512(salt + salt), then 1 iteration PBKDF2-HMAC-SHA512
+            pass_hash = hashlib.sha512(salt + salt).digest()
+            return hashlib.pbkdf2_hmac(
+                'sha512',
+                pass_hash,
+                salt,
+                1,
+                136
+            )
+        else:
+            # With passcode: SHA512(salt + passcode + salt), then 100k iterations
+            passcode_bytes = passcode.encode('utf-8')
+            pass_hash = hashlib.sha512(salt + passcode_bytes + salt).digest()
+            return hashlib.pbkdf2_hmac(
+                'sha512',
+                pass_hash,
+                salt,
+                kStrongIterationsCount,
+                136
+            )
+
+
+def get_local_key_from_key_datas(tdata_path: str, passcode: Optional[str] = None) -> bytes:
+    """Get local encryption key from key_datas file (two-stage decryption).
+
+    Args:
+        tdata_path: Path to tdata directory
+        passcode: Optional user passcode (None = no password)
+
+    Returns:
+        Local encryption key (256 bytes)
+
+    Raises:
+        FileNotFoundError: If key_datas file doesn't exist
+        ValueError: If key_datas has invalid format or decryption fails
+    """
+    from ..core.decryptor import decrypt_local_TDF
+
+    # Use empty string if no passcode provided
+    if passcode is None:
+        passcode = ""
+
+    # Read key_datas file
+    key_datas_path = os.path.join(tdata_path, 'key_datas')
+    if not os.path.exists(key_datas_path):
+        raise FileNotFoundError("key_datas file not found")
+
+    key_datas_tdf = read_tdf(key_datas_path)
+    tdesktop_version = key_datas_tdf['version']
+    reader = QtDataStreamReader(key_datas_tdf['data'])
+
+    # Extract salt, key_encrypted, info_encrypted
+    salt = reader.read_bytearray()
+    key_encrypted = reader.read_bytearray()
+    info_encrypted = reader.read_bytearray()
+
+    if salt is None or key_encrypted is None:
+        raise ValueError("Invalid key_datas format")
+
+    # Stage 1: Create passcode key and decrypt key_encrypted to get local_key
+    passcode_key = create_local_key(passcode, salt, tdesktop_version)
+    local_key = decrypt_local_TDF(key_encrypted, passcode_key)
+
+    return local_key

@@ -53,6 +53,13 @@ def info(tdata_path: str, passcode: Optional[str]):
             click.echo(f"    Passcode protected: {passcode_status}")
             click.echo()
 
+        # Show cached TDEF files info
+        tdef_files = parser.find_cached_tdef_files()
+        if tdef_files:
+            click.secho(f"Cached TDEF files: {len(tdef_files)} file(s)", fg='cyan')
+        else:
+            click.echo("Cached TDEF files: None found")
+
     except Exception as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         raise click.Abort()
@@ -130,6 +137,47 @@ def _display_account_info(info: dict):
         click.echo(f"  Passcode protected: {status}")
 
 
+@cli.command()
+@click.argument('tdata_path', type=click.Path(exists=True))
+@click.argument('output_dir', type=click.Path())
+@click.option('--passcode', '-p', help='Passcode for encrypted data')
+def extract_cache(tdata_path: str, output_dir: str, passcode: Optional[str]):
+    """Extract and decrypt cached TDEF files from tdata.
+
+    Args:
+        tdata_path: Path to tdata directory
+        output_dir: Output directory for decrypted files
+        passcode: Optional passcode
+    """
+    click.echo(f"Extracting cached files from: {tdata_path}")
+    click.echo(f"Output directory: {output_dir}\n")
+
+    try:
+        parser = TDataParser(tdata_path, passcode)
+
+        # Find TDEF files
+        tdef_files = parser.find_cached_tdef_files()
+        if not tdef_files:
+            click.secho("No cached TDEF files found", fg='yellow')
+            return
+
+        click.echo(f"Found {len(tdef_files)} cached file(s)")
+        click.echo("Extracting...\n")
+
+        # Extract files
+        stats = parser.extract_cached_tdef_files(output_dir)
+
+        # Display results
+        click.secho(f"\nExtraction complete!", fg='green')
+        click.echo(f"Total files: {stats['total']}")
+        click.secho(f"Successfully decrypted: {stats['success']}", fg='green')
+        if stats['failed'] > 0:
+            click.secho(f"Failed: {stats['failed']}", fg='red')
+        click.echo(f"\nDecrypted files saved to: {output_dir}")
+
+    except Exception as e:
+        click.secho(f"\nError: {e}", fg='red', err=True)
+        raise click.Abort()
 
 
 if __name__ == '__main__':
