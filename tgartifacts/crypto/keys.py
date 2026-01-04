@@ -97,7 +97,7 @@ def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes
             )
 
 
-def get_local_key_from_key_datas(tdata_path: str, passcode: Optional[str] = None) -> bytes:
+def get_local_key_from_key_datas(tdata_path: Path, passcode: Optional[str] = None) -> bytes:
     """Get local encryption key from key_datas file (two-stage decryption).
 
     Args:
