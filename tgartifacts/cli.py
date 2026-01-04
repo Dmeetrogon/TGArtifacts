@@ -32,7 +32,6 @@ def info(tdata_path: str, passcode: Optional[str]):
         parser = TDataParser(tdata_path, passcode)
         accounts_info = parser.get_all_accounts_info()
         click.echo(f"Found {len(accounts_info)} account(s):\n")
-
         for info_data in accounts_info:
             click.echo(f"  Account: {info_data['account_dir']}")
 

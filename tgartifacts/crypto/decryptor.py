@@ -202,3 +202,42 @@ class Decryptor:
 
         return stats
 
+# Module-level helper kept for legacy usage (used by keys.get_local_key_from_key_datas)
+def decrypt_local_TDF(encrypted_data: bytes, auth_key: bytes) -> bytes:
+    """Legacy/module-level decrypt_local_TDF(auth_key).
+
+    This mirrors the old standalone function behaviour: decrypt `encrypted_data`
+    using `auth_key` (passcode-derived key) and return decrypted payload.
+
+    Args:
+        encrypted_data: bytes, msg_key + encrypted_payload
+        auth_key: bytes, passcode-derived key (the key produced by create_local_key)
+
+    Returns:
+        Decrypted payload bytes (without 4-byte length prefix)
+
+    Raises:
+        ValueError on checksum/format errors.
+    """
+    if len(encrypted_data) < 16:
+        raise ValueError("Encrypted data too small (minimum 16 bytes for msg_key)")
+
+    msg_key = encrypted_data[:16]
+    encrypted_payload = encrypted_data[16:]
+
+    # Use the same prepare function as Decryptor (call via the class)
+    aes_key, aes_iv = Decryptor.prepare_aes_oldmtp(auth_key, msg_key)
+    decrypted = tgcrypto.ige256_decrypt(encrypted_payload, aes_key, aes_iv)
+
+    calculated_checksum = hashlib.sha1(decrypted).digest()[:16]
+    if calculated_checksum != msg_key:
+        raise ValueError(
+            "Decryption checksum mismatch. "
+            "Possible reasons: wrong auth_key (passcode key), corrupted data"
+        )
+
+    length = int.from_bytes(decrypted[:4], 'little')
+    if length > len(decrypted):
+        raise ValueError(f"Corrupted data. Wrong length: {length}")
+
+    return decrypted[4:length]
