@@ -1,4 +1,5 @@
 """Qt Data Stream Parser for Telegram Desktop binary format."""
+
 import struct
 from typing import Optional
 
@@ -19,9 +20,6 @@ class QtDataStreamReader:
             data: Binary data to parse
         """
         self.data = data
-
-
-
         self.offset = 0
 
     def read_uint32(self) -> int:

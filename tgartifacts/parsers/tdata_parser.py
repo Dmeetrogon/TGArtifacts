@@ -3,9 +3,9 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 import os
 
-from ..utils.tdf import read_tdf
-from .decryptor import decrypt_local_TDF, get_TDEF_files
-from .parser import QtDataStreamReader
+from .tdf_reader import read_tdf
+from ..crypto.decryptor import Decryptor
+from .qt_stream import QtDataStreamReader
 
 
 class TDataParser:
@@ -58,7 +58,7 @@ class TDataParser:
             FileNotFoundError: If account data file not found
             ValueError: If parsing fails
         """
-        from ..utils.crypto import get_local_key_from_key_datas
+        from ..crypto.keys import get_local_key_from_key_datas
 
         # Account data file is in tdata directory, named {account_dir}s
         account_data_file = self.tdata_path / f"{account_dir}s"
@@ -80,7 +80,8 @@ class TDataParser:
             raise ValueError("Invalid account data file: no encrypted data found")
 
         try:
-            decrypted_data = decrypt_local_TDF(encrypted_data, self._local_key)
+            decryptor = Decryptor(self._local_key)
+            decrypted_data = decryptor.decrypt_local_TDF(encrypted_data)
         except ValueError as e:
             raise ValueError(f"Failed to decrypt account data: {e}")
 
@@ -101,12 +102,10 @@ class TDataParser:
         stream = BytesIO(data)
         result = {}
 
-        # Constants
         DBI_MTP_AUTHORIZATION = 0x4B
 
         try:
             while True:
-                # Read block ID
                 block_id_bytes = stream.read(4)
                 if len(block_id_bytes) != 4:
                     break
@@ -114,7 +113,6 @@ class TDataParser:
                 block_id = int.from_bytes(block_id_bytes, 'big', signed=True)
 
                 if block_id == DBI_MTP_AUTHORIZATION:
-                    # Read QByteArray length
                     length_bytes = stream.read(4)
                     if len(length_bytes) != 4:
                         break
@@ -122,14 +120,11 @@ class TDataParser:
                     length = int.from_bytes(length_bytes, 'big', signed=True)
                     if length <= 0:
                         break
-
-                    # Read MTP authorization data
                     mtp_auth_data = stream.read(length)
                     mtp_auth = self._parse_mtp_authorization(mtp_auth_data)
                     result.update(mtp_auth)
                     break
                 else:
-                    # Skip unknown block by reading a QByteArray
                     length_bytes = stream.read(4)
                     if len(length_bytes) != 4:
                         break
@@ -256,14 +251,9 @@ class TDataParser:
             ValueError: If local key is not available
         """
         if self._local_key is None:
-            # Try to get local key
-            from ..utils.crypto import get_local_key_from_key_datas
+            from ..crypto.keys import get_local_key_from_key_datas
             self._local_key = get_local_key_from_key_datas(str(self.tdata_path), self.passcode)
 
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Extract TDEF files
-        stats = get_TDEF_files(str(self.tdata_path), self._local_key, output_dir)
-
+        decryptor = Decryptor(self._local_key)
+        stats = decryptor.decrypt_media_cache_directory(Path(self.tdata_path), Path(output_dir))
         return stats

@@ -1,10 +1,12 @@
+"""Key derivation and key_datas file handling."""
+
 import os
 import hashlib
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
-from tgartifacts.core.parser import QtDataStreamReader
-from tgartifacts.utils.tdf import read_tdf
+from ..parsers.qt_stream import QtDataStreamReader
+from ..parsers.tdf_reader import read_tdf
 
 
 def get_key_datas_version(tdata_path: str) -> Optional[int]:
@@ -109,7 +111,7 @@ def get_local_key_from_key_datas(tdata_path: str, passcode: Optional[str] = None
         FileNotFoundError: If key_datas file doesn't exist
         ValueError: If key_datas has invalid format or decryption fails
     """
-    from ..core.decryptor import decrypt_local_TDF
+    from .decryptor import decrypt_local_TDF
 
     # Use empty string if no passcode provided
     if passcode is None:

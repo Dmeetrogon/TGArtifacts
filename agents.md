@@ -43,8 +43,13 @@ Local Telegram Desktop storage containing:
 ### What We Extract
 ✅ user_id, DC ID from MTP authorization
 ✅ Account directory enumeration
-❌ Phone number (requires additional parsing)
+✅ Media cache files (TDEF format, images/videos/documents)
+❌ Auth keys (DC authorization keys in dbiMtpAuthorization)
+❌ Phone number (requires additional parsing from settings or maps)
 ❌ Message history (stored on Telegram servers, not local)
+❌ Storage maps (file index in {account_dir}/maps)
+❌ Application settings (settingss file in tdata root)
+❌ Account configs ({account_dir}/configs)
 
 ## Technical Implementation
 
@@ -127,16 +132,59 @@ tgartifacts bruteforce <path> -a ACCOUNT   # Bruteforce passcode
 - Forensic soundness — never modify source files
 
 ## Current Status
-✅ TDF file format parser
-✅ Qt Data Stream parser
+✅ TDF file format parser (magic TDF$, version, encrypted data, MD5)
+✅ TDEF file format parser (magic TDEF, AES-256-CTR decryption)
+✅ Qt Data Stream parser (uint32, int32, uint64, QByteArray)
 ✅ Two-stage decryption (passcode_key → local_key)
-✅ Account data file parsing
-✅ MTP authorization extraction
-✅ Settings blocks parsing
-✅ Bruteforce module
-✅ CLI commands (info, analyze, bruteforce)
+✅ Account data file parsing ({account_dir}s)
+✅ MTP authorization extraction (user_id, dc_id)
+✅ Settings blocks parsing (dbiMtpAuthorization 0x4B)
+✅ Media cache extraction (TDEF files from user_data/media_cache)
+✅ CLI commands (info, analyze, extract_cache)
+❌ Bruteforce module (not yet implemented)
+❌ Maps file parsing (storage index)
+❌ Auth keys extraction (DC auth keys)
+❌ Settings file parsing (settingss in tdata root)
+❌ JSON export/reports
+❌ Timeline generation
+❌ File type identification (python-magic integration)
+
+## Current Tasks (Priority Order)
+1. **Extract auth_keys from dbiMtpAuthorization block**
+   - Parse DC authorization keys (after user_id and dc_id)
+   - Store per-DC auth keys for each datacenter
+
+2. **Parse maps file** ({account_dir}/maps)
+   - Understand storage index structure
+   - Reference: ntqbit/tdesktop-decrypter for maps parsing logic
+   - Extract file metadata and locations
+
+3. **Parse settingss file** (tdata root)
+   - Extract application settings
+   - Identify relevant dbi* blocks
+
+4. **Implement JSON export**
+   - Create exporters/json_exporter.py
+   - Export account data, file lists, settings to structured JSON
+   - Schema: {accounts: [], media_cache: [], settings: {}}
+
+5. **Add python-magic integration**
+   - Install python-magic for file type identification
+   - Add magic bytes detection for extracted TDEF files
+   - Build statistics by file type
+
+6. **Timeline generation** (future)
+   - Extract timestamps from files
+   - Create chronological timeline of activity
+
+## File Type Identification Strategy
+- ✅ Use `python-magic` library (safe, no injection risks)
+- ❌ Do NOT use binwalk (command injection vulnerability)
+- ❌ Do NOT manually hardcode all signatures (impractical)
 
 ## References
 - Telegram Desktop source: https://github.com/telegramdesktop/tdesktop
 - tdesktop-decrypter (WORKING TOOL): https://github.com/ntqbit/tdesktop-decrypter
+  - Has good maps file parsing implementation
+  - Reference for auth_keys extraction
 - telegram-desktop-decrypt: https://github.com/atilaromero/telegram-desktop-decrypt

@@ -1,8 +1,28 @@
+"""TDF file format reader (TDF$ magic bytes)."""
+
 import struct
 import hashlib
 
+
 def read_tdf(filepath: str) -> dict:
-    with(open(filepath,'rb') as file):
+    """Read and validate TDF file.
+
+    TDF format:
+    - Magic: "TDF$" (4 bytes)
+    - Version: uint32 little-endian
+    - Data: N bytes (encrypted)
+    - MD5: 16 bytes checksum
+
+    Args:
+        filepath: Path to TDF file
+
+    Returns:
+        Dictionary with 'version', 'data', 'md5_valid' keys
+
+    Raises:
+        ValueError: If file is invalid or checksum mismatch
+    """
+    with open(filepath, 'rb') as file:
         content = file.read()
 
     if len(content) < 24:

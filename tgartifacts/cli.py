@@ -3,7 +3,7 @@ import click
 from pathlib import Path
 from typing import Optional
 
-from .core.tdata_parser import TDataParser
+from .parsers.tdata_parser import TDataParser
 
 
 @click.group()
@@ -30,8 +30,6 @@ def info(tdata_path: str, passcode: Optional[str]):
 
     try:
         parser = TDataParser(tdata_path, passcode)
-
-        # Get all accounts info
         accounts_info = parser.get_all_accounts_info()
         click.echo(f"Found {len(accounts_info)} account(s):\n")
 
@@ -41,19 +39,13 @@ def info(tdata_path: str, passcode: Optional[str]):
             if not info_data['success']:
                 click.secho(f"    Error: {info_data['error']}", fg='red')
                 continue
-
-            # Show basic info
             if 'user_id' in info_data:
                 click.secho(f"    User ID: {info_data['user_id']}", fg='green')
-
             if 'dc_id' in info_data:
                 click.echo(f"    DC ID: {info_data['dc_id']}")
-
             passcode_status = "Yes" if info_data.get('has_passcode') else "No"
             click.echo(f"    Passcode protected: {passcode_status}")
             click.echo()
-
-        # Show cached TDEF files info
         tdef_files = parser.find_cached_tdef_files()
         if tdef_files:
             click.secho(f"Cached TDEF files: {len(tdef_files)} file(s)", fg='cyan')
