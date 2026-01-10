@@ -92,65 +92,46 @@ class Decryptor:
             ValueError: If file format is invalid or checksum mismatch
         """
         with open(file_path, 'rb') as file:
-            # Read and validate magic bytes
             magic_bytes = file.read(4)
             if magic_bytes != b'TDEF':
                 raise ValueError(f"Invalid magic bytes. Expected b'TDEF', got {magic_bytes}")
-
-            # Read salt
             salt = file.read(64)
             if len(salt) != 64:
                 raise ValueError(f"Salt too short, expected 64 bytes, got {len(salt)} bytes")
-
-            # Read encrypted header
             encrypted_header = file.read(48)
             if len(encrypted_header) != 48:
                 raise ValueError(f"Encrypted header too short, expected 48 bytes, got {len(encrypted_header)} bytes")
-
-            # Derive encryption key and IV from local_key and salt
             real_key = hashlib.sha256(
                 self.local_key[:128] + salt[:32]
             ).digest()
-
             iv = hashlib.sha256(
                 self.local_key[128:] + salt[32:64]
             ).digest()[:16]
-
-            # Decrypt header
             header_decrypted = tgcrypto.ctr256_decrypt(
                 encrypted_header,
                 real_key,
                 iv,
                 bytes(1)
             )
-
-            # Verify checksum
             data_part = header_decrypted[:16]
             stored_checksum = header_decrypted[16:48]
 
             expected_checksum = hashlib.sha256(
                 self.local_key + salt + data_part
             ).digest()
-
             if stored_checksum != expected_checksum:
                 raise ValueError("Checksum mismatch! Wrong key or corrupted file")
-
-            # Read and decrypt data
             encrypted_data = file.read()
-
-            # Update IV for data decryption (counter mode)
             blocks_processed = len(encrypted_header) // 16
             iv_int = int.from_bytes(iv, byteorder='big')
             new_iv_int = (iv_int + blocks_processed) % (2**128)
             new_iv = new_iv_int.to_bytes(16, byteorder='big')
-
             decrypted_data = tgcrypto.ctr256_decrypt(
                 encrypted_data,
                 real_key,
                 new_iv,
                 bytes(1)
             )
-
             return decrypted_data
     def decrypt_media_cache_directory(self, tdata_path: Path, output_dir: Path) -> Dict[str, int]:
         """Extract and decrypt all TDEF files from media cache.
@@ -221,14 +202,10 @@ def decrypt_local_TDF(encrypted_data: bytes, auth_key: bytes) -> bytes:
     """
     if len(encrypted_data) < 16:
         raise ValueError("Encrypted data too small (minimum 16 bytes for msg_key)")
-
     msg_key = encrypted_data[:16]
     encrypted_payload = encrypted_data[16:]
-
-    # Use the same prepare function as Decryptor (call via the class)
     aes_key, aes_iv = Decryptor.prepare_aes_oldmtp(auth_key, msg_key)
     decrypted = tgcrypto.ige256_decrypt(encrypted_payload, aes_key, aes_iv)
-
     calculated_checksum = hashlib.sha1(decrypted).digest()[:16]
     if calculated_checksum != msg_key:
         raise ValueError(
@@ -239,5 +216,4 @@ def decrypt_local_TDF(encrypted_data: bytes, auth_key: bytes) -> bytes:
     length = int.from_bytes(decrypted[:4], 'little')
     if length > len(decrypted):
         raise ValueError(f"Corrupted data. Wrong length: {length}")
-
     return decrypted[4:length]
