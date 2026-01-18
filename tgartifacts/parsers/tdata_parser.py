@@ -68,20 +68,20 @@ class TDataParser:
 
         # Get local key from key_datas (two-stage decryption)
         if self._local_key is None:
-            self._local_key = get_local_key_from_key_datas(str(self.tdata_path), self.passcode)
+            self._local_key = get_local_key_from_key_datas(self.tdata_path, self.passcode)
 
-        # Read and decrypt account data file
+
         tdf_data = read_tdf(str(account_data_file))
         reader = QtDataStreamReader(tdf_data['data'])
 
-        # Extract encrypted data (QByteArray)
+
         encrypted_data = reader.read_bytearray()
         if encrypted_data is None:
             raise ValueError("Invalid account data file: no encrypted data found")
 
         try:
             decryptor = Decryptor(self._local_key)
-            decrypted_data = decryptor.decrypt_local_TDF(encrypted_data)
+            decrypted_data = decryptor.decrypt_TDF_file(encrypted_data)
         except ValueError as e:
             raise ValueError(f"Failed to decrypt account data: {e}")
 
@@ -212,34 +212,50 @@ class TDataParser:
 
         return results
 
+    def _scan_cache_dir(self, cache_path: Path) -> List[Path]:
+        """Scan a cache directory for TDEF files.
+
+        Args:
+            cache_path: Path to cache directory (media_cache or cache)
+
+        Returns:
+            List of file paths found
+        """
+        if not cache_path.exists():
+            return []
+
+        tdef_files = []
+        version_dirs = [d for d in cache_path.iterdir() if d.is_dir()]
+        if not version_dirs:
+            return []
+
+        for version_dir in version_dirs:
+            for subfolder in version_dir.iterdir():
+                if not subfolder.is_dir():
+                    continue
+                for file_path in subfolder.iterdir():
+                    if file_path.is_file():
+                        tdef_files.append(file_path)
+
+        return tdef_files
+
     def find_cached_tdef_files(self) -> List[Path]:
-        """Find all cached TDEF files in media_cache directory.
+        """Find all cached TDEF files in media_cache and cache directories.
 
         Returns:
             List of TDEF file paths
         """
-        media_cache_path = self.tdata_path / 'user_data' / 'media_cache'
-
-        if not media_cache_path.exists():
-            return []
+        media_cache = self.tdata_path / 'user_data' / 'media_cache'
+        cache = self.tdata_path / 'user_data' / 'cache'
 
         tdef_files = []
-        version_dirs = [d for d in media_cache_path.iterdir() if d.is_dir()]
-        if not version_dirs:
-            return []
-
-        cache_dir = version_dirs[0]
-        for subfolder in cache_dir.iterdir():
-            if not subfolder.is_dir():
-                continue
-            for file_path in subfolder.iterdir():
-                if file_path.is_file():
-                    tdef_files.append(file_path)
+        tdef_files.extend(self._scan_cache_dir(media_cache))
+        tdef_files.extend(self._scan_cache_dir(cache))
 
         return tdef_files
 
     def extract_cached_tdef_files(self, output_dir: str) -> Dict[str, Any]:
-        """Extract and decrypt cached TDEF files.
+        """Extract and decrypt cached TDEF files from both cache directories.
 
         Args:
             output_dir: Output directory for decrypted files
@@ -252,8 +268,18 @@ class TDataParser:
         """
         if self._local_key is None:
             from ..crypto.keys import get_local_key_from_key_datas
-            self._local_key = get_local_key_from_key_datas(str(self.tdata_path), self.passcode)
-
+            self._local_key = get_local_key_from_key_datas(self.tdata_path, self.passcode)
         decryptor = Decryptor(self._local_key)
-        stats = decryptor.decrypt_media_cache_directory(Path(self.tdata_path), Path(output_dir))
+        output_path = Path(output_dir)
+        stats = {'total': 0, 'success': 0, 'failed': 0, 'streaming': 0}
+        media_cache = self.tdata_path / 'user_data' / 'media_cache'
+        cache = self.tdata_path / 'user_data' / 'cache'
+        for cache_path in [media_cache, cache]:
+            if cache_path.exists():
+                dir_stats = decryptor.decrypt_media_cache_directory(cache_path, output_path)
+                stats['total'] += dir_stats['total']
+                stats['success'] += dir_stats['success']
+                stats['failed'] += dir_stats['failed']
+                stats['streaming'] += dir_stats.get('streaming', 0)
+
         return stats

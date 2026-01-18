@@ -111,7 +111,7 @@ def get_local_key_from_key_datas(tdata_path: Path, passcode: Optional[str] = Non
         FileNotFoundError: If key_datas file doesn't exist
         ValueError: If key_datas has invalid format or decryption fails
     """
-    from .decryptor import decrypt_local_TDF
+    from .decryptor import decrypt_TDF_file_legacy
 
     # Use empty string if no passcode provided
     if passcode is None:
@@ -136,6 +136,6 @@ def get_local_key_from_key_datas(tdata_path: Path, passcode: Optional[str] = Non
 
     # Stage 1: Create passcode key and decrypt key_encrypted to get local_key
     passcode_key = create_local_key(passcode, salt, tdesktop_version)
-    local_key = decrypt_local_TDF(key_encrypted, passcode_key)
+    local_key = decrypt_TDF_file_legacy(key_encrypted, passcode_key)
 
     return local_key

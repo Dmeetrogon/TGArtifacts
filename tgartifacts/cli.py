@@ -145,20 +145,13 @@ def extract_cache(tdata_path: str, output_dir: str, passcode: Optional[str]):
 
     try:
         parser = TDataParser(tdata_path, passcode)
-
-        # Find TDEF files
         tdef_files = parser.find_cached_tdef_files()
         if not tdef_files:
             click.secho("No cached TDEF files found", fg='yellow')
             return
-
         click.echo(f"Found {len(tdef_files)} cached file(s)")
         click.echo("Extracting...\n")
-
-        # Extract files
         stats = parser.extract_cached_tdef_files(output_dir)
-
-        # Display results
         click.secho(f"\nExtraction complete!", fg='green')
         click.echo(f"Total files: {stats['total']}")
         click.secho(f"Successfully decrypted: {stats['success']}", fg='green')

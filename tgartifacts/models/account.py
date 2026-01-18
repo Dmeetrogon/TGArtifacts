@@ -5,3 +5,4 @@ class Account:
         self.files_names = files_names
         if len(files_names) != 0 and len(files_names) != files_count:
             self.files_count = len(files_names)
+        #TODO make this class done. This is needed for reports generations

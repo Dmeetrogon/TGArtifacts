@@ -4,3 +4,5 @@ class MTPAuthorization:
         self.phone = phone
         self.dc_id = dc_id
         self.auth_keys = auth_keys
+
+        #TODO get this class done
