@@ -162,6 +162,8 @@ def extract_cache(tdata_path: str, output_dir: str, passcode: Optional[str]):
         click.secho(f"\nExtraction complete!", fg='green')
         click.echo(f"Total files: {stats['total']}")
         click.secho(f"Successfully decrypted: {stats['success']}", fg='green')
+        if stats.get('streaming', 0) > 0:
+            click.secho(f"Streaming cache reassembled: {stats['streaming']}", fg='cyan')
         if stats['failed'] > 0:
             click.secho(f"Failed: {stats['failed']}", fg='red')
         click.echo(f"\nDecrypted files saved to: {output_dir}")

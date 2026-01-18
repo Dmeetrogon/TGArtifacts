@@ -2,6 +2,7 @@ import hashlib
 from typing import Tuple, Dict, Optional, List
 import tgcrypto
 from pathlib import Path
+import magic
 
 
 class Decryptor:
@@ -197,40 +198,61 @@ class Decryptor:
 
         return bytes(assembled)
 
+    # MIME type to extension mapping
+    MIME_TO_EXT = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp',
+        'image/bmp': '.bmp',
+        'image/tiff': '.tiff',
+        'video/mp4': '.mp4',
+        'video/webm': '.webm',
+        'video/x-matroska': '.mkv',
+        'video/quicktime': '.mov',
+        'video/x-msvideo': '.avi',
+        'audio/ogg': '.ogg',
+        'audio/opus': '.opus',
+        'audio/mpeg': '.mp3',
+        'audio/x-wav': '.wav',
+        'audio/flac': '.flac',
+        'audio/aac': '.aac',
+        'application/gzip': '.tgs',  # Telegram stickers are gzipped
+        'application/json': '.json',
+        'text/plain': '.txt',
+    }
+
     @staticmethod
-    def detect_media_type(data: bytes) -> str:
-        """Detect media type from file signature.
+    def detect_media_extension(data: bytes) -> str:
+        """Detect file extension using libmagic.
 
         Args:
-            data: Raw media bytes
+            data: File data
 
         Returns:
-            File extension (e.g., 'mp4', 'jpg', 'png') or 'bin' if unknown
+            File extension (e.g., '.mp4', '.ogg', '.jpg') or '.bin' if unknown
         """
-        if len(data) < 16:
-            return 'bin'
+        if len(data) < 12:
+            return '.bin'
 
-        # Check common signatures
-        if data[:8] == b'\x89PNG\r\n\x1a\n':
-            return 'png'
-        if data[:3] == b'\xff\xd8\xff':
-            return 'jpg'
-        if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
-            return 'webp'
-        if data[:4] == b'GIF8':
-            return 'gif'
-        if data[4:8] == b'ftyp':
-            return 'mp4'
-        if data[:4] == b'\x1a\x45\xdf\xa3':
-            return 'webm'
-        if data[:4] == b'OggS':
-            return 'ogg'
-        if data[:3] == b'ID3' or data[:2] == b'\xff\xfb':
-            return 'mp3'
-        if data[:4] == b'fLaC':
-            return 'flac'
+        try:
+            mime = magic.from_buffer(data, mime=True)
 
-        return 'bin'
+            # Check direct mapping
+            if mime in Decryptor.MIME_TO_EXT:
+                return Decryptor.MIME_TO_EXT[mime]
+
+            # Handle subtypes (e.g., 'video/x-m4v' -> '.mp4')
+            if mime.startswith('video/'):
+                return '.mp4'
+            if mime.startswith('audio/'):
+                return '.ogg'
+            if mime.startswith('image/'):
+                return '.bin'
+
+            return '.bin'
+        except Exception:
+            return '.bin'
 
     def decrypt_media_cache_directory(self, tdata_path: Path, output_dir: Path) -> Dict[str, int]:
         """Extract and decrypt all TDEF files from media cache.
@@ -240,7 +262,7 @@ class Decryptor:
             output_dir: Output directory for decrypted files
 
         Returns:
-            Dictionary with statistics: {'total': int, 'success': int, 'failed': int}
+            Dictionary with stats of decryption: {'total': int, 'success': int, 'failed': int, 'streaming': int}
 
         Raises:
             FileNotFoundError: If media_cache directory not found
@@ -248,33 +270,38 @@ class Decryptor:
         tdata_path = Path(tdata_path)
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-
         media_cache_path = tdata_path / 'user_data' / 'media_cache'
-
         if not media_cache_path.exists():
             raise FileNotFoundError(f"Media cache not found: {media_cache_path}")
-
         version_dirs = [d for d in media_cache_path.iterdir() if d.is_dir()]
         if not version_dirs:
             raise FileNotFoundError("No directories found in media_cache")
-
         cache_dir = version_dirs[0]
-        stats = {'total': 0, 'success': 0, 'failed': 0}
-
+        stats = {'total': 0, 'success': 0, 'failed': 0, 'streaming': 0}
         for subfolder in cache_dir.iterdir():
             if not subfolder.is_dir():
                 continue
-
             for file_path in subfolder.iterdir():
                 if file_path.is_file():
                     stats['total'] += 1
                     try:
                         decrypted_data = self.decrypt_TDEF_file(file_path)
-                        output_path = output_dir / file_path.name
 
+                        # Try to parse as streaming cache format
+                        assembled_media = self.parse_streaming_cache_data(decrypted_data)
+                        if assembled_media is not None:
+                            # Successfully parsed streaming cache
+                            final_data = assembled_media
+                            stats['streaming'] += 1
+                        else:
+                            # Not streaming format, use raw data
+                            final_data = decrypted_data
+
+                        # Detect extension and save
+                        ext = self.detect_media_extension(final_data)
+                        output_path = output_dir / f"{file_path.name}{ext}"
                         with open(output_path, 'wb') as out_file:
-                            out_file.write(decrypted_data)
-
+                            out_file.write(final_data)
                         stats['success'] += 1
                     except Exception as e:
                         print(f"Failed to decrypt {file_path}: {e}")
@@ -282,7 +309,7 @@ class Decryptor:
 
         return stats
 
-# Module-level helper kept for legacy usage (used by keys.get_local_key_from_key_datas)
+# used by keys.get_local_key_from_key_datas
 def decrypt_local_TDF(encrypted_data: bytes, auth_key: bytes) -> bytes:
     """Legacy/module-level decrypt_local_TDF(auth_key).
 
