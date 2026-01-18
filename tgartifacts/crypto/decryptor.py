@@ -1,5 +1,5 @@
 import hashlib
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional, List
 import tgcrypto
 from pathlib import Path
 
@@ -81,12 +81,14 @@ class Decryptor:
         """Decrypt single TDEF file (media cache file).
 
         Uses AES-256-CTR encryption with salt-based key derivation.
+        IMPORTANT: Header and data must be decrypted as one continuous stream
+        because CTR mode keystream is position-dependent.
 
         Args:
             file_path: Path to TDEF file
 
         Returns:
-            Decrypted file data
+            Decrypted file data (raw serialized cache data)
 
         Raises:
             ValueError: If file format is invalid or checksum mismatch
@@ -98,41 +100,138 @@ class Decryptor:
             salt = file.read(64)
             if len(salt) != 64:
                 raise ValueError(f"Salt too short, expected 64 bytes, got {len(salt)} bytes")
-            encrypted_header = file.read(48)
-            if len(encrypted_header) != 48:
-                raise ValueError(f"Encrypted header too short, expected 48 bytes, got {len(encrypted_header)} bytes")
+
+            # Read all encrypted content (header + data)
+            encrypted_content = file.read()
+            if len(encrypted_content) < 48:
+                raise ValueError(f"Encrypted content too short, expected at least 48 bytes")
+
+            # Derive AES key and IV from local_key and salt
             real_key = hashlib.sha256(
                 self.local_key[:128] + salt[:32]
             ).digest()
             iv = hashlib.sha256(
                 self.local_key[128:] + salt[32:64]
             ).digest()[:16]
-            header_decrypted = tgcrypto.ctr256_decrypt(
-                encrypted_header,
+
+            # Decrypt header and data together as continuous stream
+            # This is required because CTR mode keystream is position-dependent
+            decrypted_all = tgcrypto.ctr256_decrypt(
+                encrypted_content,
                 real_key,
                 iv,
                 bytes(1)
             )
+
+            # Split into header (48 bytes) and data
+            header_decrypted = decrypted_all[:48]
+            decrypted_data = decrypted_all[48:]
+
+            # Verify header checksum
             data_part = header_decrypted[:16]
             stored_checksum = header_decrypted[16:48]
-
             expected_checksum = hashlib.sha256(
                 self.local_key + salt + data_part
             ).digest()
+
             if stored_checksum != expected_checksum:
                 raise ValueError("Checksum mismatch! Wrong key or corrupted file")
-            encrypted_data = file.read()
-            blocks_processed = len(encrypted_header) // 16
-            iv_int = int.from_bytes(iv, byteorder='big')
-            new_iv_int = (iv_int + blocks_processed) % (2**128)
-            new_iv = new_iv_int.to_bytes(16, byteorder='big')
-            decrypted_data = tgcrypto.ctr256_decrypt(
-                encrypted_data,
-                real_key,
-                new_iv,
-                bytes(1)
-            )
+
             return decrypted_data
+
+    @staticmethod
+    def parse_streaming_cache_data(data: bytes) -> Optional[bytes]:
+        """Parse streaming cache serialization format and reassemble media.
+
+        Streaming cache files store media in parts with the format:
+        - uint32 count (number of parts)
+        - For each part:
+          - uint32 offset (position in final media)
+          - uint32 size (size of this part)
+          - bytes[size] (part data)
+
+        Args:
+            data: Raw decrypted cache data
+
+        Returns:
+            Reassembled media bytes, or None if not streaming format
+        """
+        if len(data) < 4:
+            return None
+
+        count = int.from_bytes(data[:4], 'little')
+
+        # Sanity check - count should be reasonable
+        if count == 0 or count > 1000:
+            return None
+
+        pos = 4
+        parts: List[Tuple[int, int, bytes]] = []
+
+        try:
+            for _ in range(count):
+                if pos + 8 > len(data):
+                    return None
+                offset = int.from_bytes(data[pos:pos+4], 'little')
+                size = int.from_bytes(data[pos+4:pos+8], 'little')
+                pos += 8
+
+                if size == 0 or pos + size > len(data):
+                    return None
+
+                part_data = data[pos:pos+size]
+                parts.append((offset, size, part_data))
+                pos += size
+
+        except Exception:
+            return None
+
+        if not parts:
+            return None
+
+        # Reassemble media
+        max_end = max(p[0] + p[1] for p in parts)
+        assembled = bytearray(max_end)
+        for offset, size, part_data in parts:
+            assembled[offset:offset+len(part_data)] = part_data
+
+        return bytes(assembled)
+
+    @staticmethod
+    def detect_media_type(data: bytes) -> str:
+        """Detect media type from file signature.
+
+        Args:
+            data: Raw media bytes
+
+        Returns:
+            File extension (e.g., 'mp4', 'jpg', 'png') or 'bin' if unknown
+        """
+        if len(data) < 16:
+            return 'bin'
+
+        # Check common signatures
+        if data[:8] == b'\x89PNG\r\n\x1a\n':
+            return 'png'
+        if data[:3] == b'\xff\xd8\xff':
+            return 'jpg'
+        if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+            return 'webp'
+        if data[:4] == b'GIF8':
+            return 'gif'
+        if data[4:8] == b'ftyp':
+            return 'mp4'
+        if data[:4] == b'\x1a\x45\xdf\xa3':
+            return 'webm'
+        if data[:4] == b'OggS':
+            return 'ogg'
+        if data[:3] == b'ID3' or data[:2] == b'\xff\xfb':
+            return 'mp3'
+        if data[:4] == b'fLaC':
+            return 'flac'
+
+        return 'bin'
+
     def decrypt_media_cache_directory(self, tdata_path: Path, output_dir: Path) -> Dict[str, int]:
         """Extract and decrypt all TDEF files from media cache.
 
