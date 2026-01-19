@@ -63,7 +63,6 @@ class Decryptor:
         if len(data) < 4:
             return None
         count = int.from_bytes(data[:4], 'little')
-        # Sanity check
         if count == 0 or count > 1000:
             return None
         pos = 4
@@ -122,7 +121,7 @@ class Decryptor:
             raise ValueError(f"Corrupted data. Wrong length: {length}")
         return decrypted[4:length]
     def decrypt_TDEF_file(self, file_path: Path) -> bytes:
-        """Decrypt single TDEF file (media cache file).
+        """Decrypt single TDEF file
         Uses AES-256-CTR encryption with salt-based key derivation.
         Args:
             file_path: Path to TDEF file

@@ -150,17 +150,14 @@ class TDataParser:
 
         stream = BytesIO(data)
 
-        # Read legacy IDs first
         legacy_user_id = int.from_bytes(stream.read(4), 'big', signed=True)
         legacy_main_dc_id = int.from_bytes(stream.read(4), 'big', signed=True)
 
         # Check if this is new format
         if legacy_user_id == -1 and legacy_main_dc_id == -1:
-            # New format: read uint64 user_id and int32 dc_id
             user_id = int.from_bytes(stream.read(8), 'big', signed=False)
             main_dc_id = int.from_bytes(stream.read(4), 'big', signed=True)
         else:
-            # Legacy format
             user_id = legacy_user_id
             main_dc_id = legacy_main_dc_id
 
