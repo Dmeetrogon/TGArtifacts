@@ -209,3 +209,8 @@ __marimo__/
 .idea/
 .claude/
 agents.md
+
+# Telegram sessions (sensitive data)
+check_session.py
+*.session
+*.session-journal
