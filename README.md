@@ -105,7 +105,7 @@ find / -name "tdata" 2>/dev/null
 ```
 Windows
 ```bash
-dir C:\tdata /s /b /ad 2>nul
+dir C:\tdata /s /b /ad 2>null
 ```
 
 
