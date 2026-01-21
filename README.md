@@ -94,8 +94,9 @@ Default `tdata` paths:
 | macOS | `~/Library/Application Support/Telegram Desktop/tdata` |
 | Linux | `~/.local/share/TelegramDesktop/tdata` |
 
-or you can find it with commands:
-Linux tdata
+### Or you can find `tdata` folder  commands:
+
+Linux 
 ```bash
 find / -name "tdata" 2>/dev/null
 ```
