@@ -4,7 +4,6 @@ import base64
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple
 
-# Telegram DC addresses (production)
 DC_INFO: Dict[int, tuple] = {
     1: ("149.154.175.53", 443),
     2: ("149.154.167.51", 443),
@@ -12,8 +11,6 @@ DC_INFO: Dict[int, tuple] = {
     4: ("149.154.167.91", 443),
     5: ("91.108.56.130", 443),
 }
-
-# Telegram Desktop public credentials (from open source)
 DEFAULT_API_ID = 2040
 DEFAULT_API_HASH = "b18441a1ff607e10a989891a5462e627"
 
@@ -33,7 +30,6 @@ def parse_string_session(session_string: str) -> Tuple[int, bytes]:
     if not session_string.startswith('1'):
         raise ValueError("Invalid StringSession format (should start with '1')")
 
-    # Remove version prefix and add padding
     data_b64 = session_string[1:]
     padding = 4 - len(data_b64) % 4
     if padding != 4:

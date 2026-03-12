@@ -48,14 +48,11 @@ def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes
         - https://github.com/openwall/john/issues/4387
     """
     # Constants from official Telegram Desktop
-    LocalEncryptIterCount = 4000           # Old versions WITH passcode
-    LocalEncryptNoPwdIterCount = 4         # Old versions WITHOUT passcode
-    kStrongIterationsCount = 100000        # New versions WITH passcode
-
-    # OLD ALGORITHM (Telegram Desktop < 2.1.14, AppVersion < 2001014)
+    LocalEncryptIterCount = 4000           
+    LocalEncryptNoPwdIterCount = 4        
+    kStrongIterationsCount = 100000        
     if tdesktop_version < 2001014:
         if not passcode:
-            # No passcode: PBKDF2-SHA1 with 4 iterations
             return hashlib.pbkdf2_hmac(
                 'sha1',
                 b'',
@@ -64,7 +61,6 @@ def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes
                 136
             )
         else:
-            # With passcode: PBKDF2-SHA1 with 4000 iterations
             return hashlib.pbkdf2_hmac(
                 'sha1',
                 passcode.encode('utf-8'),
@@ -72,10 +68,8 @@ def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes
                 LocalEncryptIterCount,
                 136
             )
-    # NEW ALGORITHM (Telegram Desktop >= 2.1.14, AppVersion >= 2001014)
     else:
         if not passcode:
-            # No passcode: SHA512(salt + salt), then 1 iteration PBKDF2-HMAC-SHA512
             pass_hash = hashlib.sha512(salt + salt).digest()
             return hashlib.pbkdf2_hmac(
                 'sha512',
@@ -85,7 +79,6 @@ def create_local_key(passcode: str, salt: bytes, tdesktop_version: int) -> bytes
                 136
             )
         else:
-            # With passcode: SHA512(salt + passcode + salt), then 100k iterations
             passcode_bytes = passcode.encode('utf-8')
             pass_hash = hashlib.sha512(salt + passcode_bytes + salt).digest()
             return hashlib.pbkdf2_hmac(
@@ -112,12 +105,8 @@ def get_local_key_from_key_datas(tdata_path: Path, passcode: Optional[str] = Non
         ValueError: If key_datas has invalid format or decryption fails
     """
     from .decryptor import decrypt_TDF_file_legacy
-
-    # Use empty string if no passcode provided
     if passcode is None:
         passcode = ""
-
-    # Read key_datas file
     key_datas_path = os.path.join(tdata_path, 'key_datas')
     if not os.path.exists(key_datas_path):
         raise FileNotFoundError("key_datas file not found")
@@ -125,16 +114,12 @@ def get_local_key_from_key_datas(tdata_path: Path, passcode: Optional[str] = Non
     key_datas_tdf = read_tdf(key_datas_path)
     tdesktop_version = key_datas_tdf['version']
     reader = QtDataStreamReader(key_datas_tdf['data'])
-
-    # Extract salt, key_encrypted, info_encrypted
     salt = reader.read_bytearray()
     key_encrypted = reader.read_bytearray()
     info_encrypted = reader.read_bytearray()
 
     if salt is None or key_encrypted is None:
         raise ValueError("Invalid key_datas format")
-
-    # Stage 1: Create passcode key and decrypt key_encrypted to get local_key
     passcode_key = create_local_key(passcode, salt, tdesktop_version)
     local_key = decrypt_TDF_file_legacy(key_encrypted, passcode_key)
 

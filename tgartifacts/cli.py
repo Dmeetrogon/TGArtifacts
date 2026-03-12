@@ -3,41 +3,14 @@ import click
 from typing import Optional
 
 from .parsers.tdata_parser import TDataParser
-def _display_account_info(info: dict):
-    """Display account information in terminal.
-
-    Args:
-        info: Account information dictionary
-    """
-    click.echo(f"Account: {info['account_dir']}")
-
-    if not info['success']:
-        click.secho(f"  Error: {info['error']}", fg='red')
-        return
-
-    # Display user data if available
-    if 'user_id' in info:
-        click.secho(f"  User ID: {info['user_id']}", fg='green')
-
-    if 'dc_id' in info:
-        click.echo(f"  DC ID: {info['dc_id']}")
-
-    if 'phone' in info and info['phone']:
-        click.secho(f"  Phone: {info['phone']}", fg='cyan')
-
-    if 'entry_count' in info:
-        click.echo(f"  Entries: {info['entry_count']}")
-
-    if 'has_passcode' in info:
-        status = "Yes" if info['has_passcode'] else "No"
-        click.echo(f"  Passcode protected: {status}")
 
 @click.group()
 @click.version_option(version='0.1.0')
 def cli():
     """TGArtifacts - Telegram Desktop artifact analysis tool.
     Extract and analyze data from Telegram Desktop's tdata directory.
-    Only for educational purposes
+    Only for educational purposes. Do not use as stealer instrument.
+        By Dmeetrogon
     """
     pass
 
@@ -87,7 +60,6 @@ def info(tdata_path: str, passcode: Optional[str], show_keys: bool):
             passcode_status = "Yes" if info_data.get('has_passcode') else "No"
             click.echo(f"    Passcode protected: {passcode_status}")
 
-            # Display auth keys info
             auth_keys = info_data.get('auth_keys', {})
             if auth_keys:
                 click.secho(f"    Auth keys: {len(auth_keys)} DC(s)", fg='cyan')
@@ -95,7 +67,6 @@ def info(tdata_path: str, passcode: Optional[str], show_keys: bool):
                     auth_key_id = _compute_auth_key_id(auth_key)
                     click.echo(f"      DC {dc_id}: auth_key_id = {auth_key_id}")
                     if show_keys:
-                        # Display full key in chunks for readability
                         key_hex = auth_key.hex()
                         click.echo(f"        auth_key = {key_hex[:64]}...")
                         click.echo(f"                   {key_hex[64:128]}...")
@@ -105,8 +76,6 @@ def info(tdata_path: str, passcode: Optional[str], show_keys: bool):
                         click.echo(f"                   {key_hex[320:384]}...")
                         click.echo(f"                   {key_hex[384:448]}...")
                         click.echo(f"                   {key_hex[448:]}")
-
-            # Display keys to destroy if any
             keys_to_destroy = info_data.get('keys_to_destroy', {})
             if keys_to_destroy:
                 click.secho(f"    Keys to destroy: {len(keys_to_destroy)} DC(s)", fg='yellow')
@@ -158,10 +127,6 @@ def extract_cache(tdata_path: str, output_dir: str, passcode: Optional[str]):
     except Exception as e:
         click.secho(f"\nError: {e}", fg='red', err=True)
         raise click.Abort()
-
-
-
-
 def _create_telethon_string_session(dc_id: int, auth_key: bytes) -> str:
     """Create telethon StringSession from dc_id and auth_key.
 
@@ -178,17 +143,14 @@ def _create_telethon_string_session(dc_id: int, auth_key: bytes) -> str:
     import struct
     import base64
 
-    # Pack: dc_id (1 byte) + ip (4 bytes, zeros) + port (2 bytes) + auth_key (256 bytes)
-    # Total: 263 bytes
     session_data = struct.pack(
         '>B4sH256s',
         dc_id,
-        b'\x00\x00\x00\x00',  # IP placeholder (telethon will resolve)
-        443,  # Default port
+        b'\x00\x00\x00\x00',  # IP placeholder for telethon
+        443,  
         auth_key
     )
 
-    # Encode as base64url and prepend version '1'
     return '1' + base64.urlsafe_b64encode(session_data).decode('ascii')
 
 

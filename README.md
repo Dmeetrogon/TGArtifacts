@@ -16,6 +16,14 @@ CLI forensic tool for Telegram Desktop artifact analysis. Extract and analyze da
 ## Installation
 
 ```bash
+git clone --depth 1 https://github.com/Dmeetrogon/TGArtifacts.git && cd TGArtifacts
+```
+
+```bash
+python3 -m venv venv && sourcu venv/bin/activate
+```
+
+```bash
 pip install .
 ```
 
