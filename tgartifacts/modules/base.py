@@ -41,7 +41,6 @@ class BaseModule(ABC):
         """Return list of missing or incompatible pip packages."""
         missing = []
         for req in self.requirements:
-            # Parse PEP 508: extract package name and optional version spec
             match = re.match(r'^([A-Za-z0-9_.-]+)\s*(.*)', req)
             if not match:
                 continue

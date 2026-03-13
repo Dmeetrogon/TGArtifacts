@@ -12,10 +12,10 @@ from ...crypto.decryptor import decrypt_tdf_legacy
 
 @dataclass
 class Finding:
-    severity: str  # CRITICAL, WARNING, INFO
+    severity: str
     title: str
     detail: str
-    mitre_id: Optional[str] = None  # ATT&CK or D3FEND ID
+    mitre_id: Optional[str] = None
 
 
 @dataclass

@@ -8,7 +8,7 @@ from typing import List, Optional
 @dataclass
 class TDataLocation:
     path: Path
-    source: str  # e.g. "snap", "flatpak", "native", "custom"
+    source: str
     has_key_datas: bool = False
     account_dirs: List[str] = field(default_factory=list)
 
@@ -53,12 +53,10 @@ def scan_tdata(extra_paths: Optional[List[Path]] = None) -> List[TDataLocation]:
     candidates: List[tuple[Path, str]] = []
 
     if system == 'Linux':
-        # Native
         candidates.append((
             home / '.local' / 'share' / 'TelegramDesktop' / 'tdata',
             'native'
         ))
-        # Snap (multiple revisions)
         snap_base = home / 'snap' / 'telegram-desktop'
         if snap_base.is_dir():
             for rev in snap_base.iterdir():
@@ -67,7 +65,6 @@ def scan_tdata(extra_paths: Optional[List[Path]] = None) -> List[TDataLocation]:
                         rev / '.local' / 'share' / 'TelegramDesktop' / 'tdata',
                         f'snap/{rev.name}'
                     ))
-        # Flatpak
         candidates.append((
             home / '.var' / 'app' / 'org.telegram.desktop' / 'data' / 'TelegramDesktop' / 'tdata',
             'flatpak'
