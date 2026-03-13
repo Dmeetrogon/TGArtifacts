@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "TGArtifacts Team"}
+    {name = "Dmeetrogon"}
 ]
 keywords = ["telegram", "forensics", "tdata", "cli"]
 classifiers = [
@@ -31,6 +31,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+validate-session = ["telethon>=2.0"]
+all = ["telethon>=2.0"]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

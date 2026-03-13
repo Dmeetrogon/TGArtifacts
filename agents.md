@@ -6,22 +6,35 @@ CLI forensic tool for Telegram Desktop artifact analysis. Extracts and analyzes 
 ## Tech Stack
 - **Language:** Python 3.10+
 - **CLI:** click
-- **Crypto:** tgcrypto (AES-256-IGE), PBKDF2-HMAC-SHA512
-- **Output:** rich (terminal), Jinja2 (HTML reports)
+- **Crypto:** tgcrypto (AES-256-IGE, AES-256-CTR), PBKDF2-HMAC-SHA512
+- **Session:** telethon (StringSession export/validation)
+- **Output:** rich (terminal), JSON export
 
 ## Project Structure
 ```
 tgartifacts/
 ├── cli.py              # Entry point, click commands
-├── core/
-│   ├── tdata_parser.py # Parse tdata structure
-│   ├── decryptor.py    # AES-256-IGE decryption
-│   ├── parser.py       # Qt Data Stream parser
-│   └── bruteforce.py   # Passcode bruteforce
-├── utils/
-│   ├── crypto.py       # Key derivation, encryption helpers
-│   └── tdf.py          # TDF file format parser
-└── templates/          # Jinja2 HTML templates (future)
+├── crypto/
+│   ├── decryptor.py    # AES-256-IGE (TDF), AES-256-CTR (TDEF) decryption
+│   └── keys.py         # Key derivation (PBKDF2, local key extraction)
+├── parsers/
+│   ├── tdata_parser.py # Main tdata directory parser
+│   ├── tdf_reader.py   # TDF file format reader
+│   └── qt_stream.py    # Qt Data Stream binary parser
+├── plugins/
+│   ├── base.py         # BasePlugin abstract class, PluginContext dataclass
+│   ├── manager.py      # PluginManager (load from directory, register)
+│   └── contrib/        # Built-in plugins
+│       └── hash_report.py
+├── models/
+│   └── account.py      # Account data models
+├── exporters/
+│   ├── json_exporter.py
+│   └── report.py
+└── utils/
+    ├── session_validator.py  # Telethon StringSession validation
+    ├── extension_detector.py # File type detection via magic bytes
+    └── timeline.py
 ```
 
 ## Key Concepts
@@ -32,26 +45,13 @@ Local Telegram Desktop storage containing:
 - Media cache (images, videos, documents, voice)
 - Settings and configurations
 
-### Encryption (Updated Implementation)
-- Files encrypted with AES-256-IGE (MTProto old scheme)
+### Encryption
+- TDF files encrypted with AES-256-IGE (MTProto old scheme)
+- TDEF files encrypted with AES-256-CTR (salt-based key derivation)
 - Two-stage decryption:
   1. **Passcode key**: PBKDF2-HMAC-SHA512(SHA512(salt + passcode + salt), salt, iterations, 256 bytes)
      - iterations = 1 (no passcode) or 100,000 (with passcode)
   2. **Local key**: decrypt(key_encrypted, passcode_key) from key_datas file
-- TDF format: magic "TDF$" + version + encrypted data + MD5
-
-### What We Extract
-✅ user_id, DC ID from MTP authorization
-✅ Account directory enumeration
-✅ Media cache files (TDEF format, images/videos/documents)
-❌ Auth keys (DC authorization keys in dbiMtpAuthorization)
-❌ Phone number (requires additional parsing from settings or maps)
-❌ Message history (stored on Telegram servers, not local)
-❌ Storage maps (file index in {account_dir}/maps)
-❌ Application settings (settingss file in tdata root)
-❌ Account configs ({account_dir}/configs)
-
-## Technical Implementation
 
 ### TDF File Format
 ```
@@ -66,70 +66,60 @@ Local Telegram Desktop storage containing:
 +----------------+
 ```
 
-### Qt Data Stream Parser
-Binary format used by Telegram Desktop for serialization:
-- **uint32/int32/uint64**: Big-endian integers
-- **QByteArray**: int32 length + raw bytes (length ≤ 0 = empty/null)
-- Used to parse decrypted data and settings blocks
+### TDEF File Format
+```
++-------------------+
+| "TDEF" (4b)       | Magic bytes
++-------------------+
+| Salt (64b)        | Random salt for key derivation
++-------------------+
+| Encrypted (N bytes)| AES-256-CTR encrypted content
++-------------------+
+```
 
-### Decryption Pipeline (Corrected)
-1. **Read key_datas file** (TDF format)
-2. **Extract components**:
-   - `salt` (QByteArray, 32 bytes)
-   - `key_encrypted` (QByteArray)
-   - `info_encrypted` (QByteArray)
-3. **Generate passcode key**:
-   - Pre-hash: `SHA512(salt + passcode + salt)`
-   - `PBKDF2-HMAC-SHA512(pre_hash, salt, iterations, 256)`
-   - iterations = 1 (no passcode) or 100,000 (with passcode)
-4. **Decrypt key_encrypted** → local_key (256 bytes)
-5. **Read account data file** (tdata/{account_dir}s)
-6. **Decrypt with local_key** → settings blocks
-7. **Parse settings blocks** → find dbiMtpAuthorization (0x4B)
-8. **Extract user_id and dc_id**
-
-### Crypto Functions
-- **prepare_aes_oldmtp(key, msg_key, send=False)** → Derives AES key/IV using SHA1
-  - Offset x = 8 for decryption (send=False)
-  - Combines local_key with msg_key via 4x SHA1 operations
-  - Returns (aes_key, aes_iv) for IGE mode
-- **decrypt_local(encrypted, key)** → AES-256-IGE decryption
-  - First 16 bytes = msg_key (SHA1 checksum)
-  - Verifies decrypted data integrity: SHA1(decrypted)[:16] == msg_key
-  - Returns decrypted data without 4-byte length prefix
+### Decryption Pipeline
+1. Read key_datas file (TDF format)
+2. Extract: salt (32 bytes), key_encrypted, info_encrypted
+3. Generate passcode key: PBKDF2-HMAC-SHA512(pre_hash, salt, iterations, 256)
+4. Decrypt key_encrypted → local_key (256 bytes)
+5. Read account data file (tdata/{account_dir}s)
+6. Decrypt with local_key → settings blocks
+7. Parse settings blocks → find dbiMtpAuthorization (0x4B)
+8. Extract user_id, dc_id, auth_keys
 
 ### tdata Structure
 ```
 tdata/
-├── key_datas           # Encrypted localKey (always exists in new versions)
+├── key_datas           # Encrypted localKey
 ├── settingss           # Application settings (TDF)
-├── D877F783D5D3EF8C/   # Account directory (MD5 hash of "data")
+├── D877F783D5D3EF8C/   # Account directory
 │   ├── maps            # Storage map (TDF)
 │   ├── configs         # Account configs
-│   └── ...             # Cached data
+│   └── ...
 ├── D877F783D5D3EF8Cs   # Account MTP data file (TDF)
-└── ...
+└── user_data/
+    ├── media_cache/    # Encrypted media files (TDEF)
+    └── cache/          # Encrypted cache files (TDEF)
 ```
 
-**Important**: Account data is NOT in the maps file inside the directory.
-- Account directory name = MD5("data")[:8] reversed hex pairs
-- Account data file = {directory_name}s in tdata root
-- Contains settings blocks with dbiMtpAuthorization
+## Plugin System
 
-## Main Commands
+Volatility-inspired plugin architecture:
+- `BasePlugin` — abstract class with `name`, `description`, `version`, `run(context)`
+- `PluginContext` — dataclass providing access to tdata_path, accounts, cache_files, local_key
+- `PluginManager` — scans directories for .py files, discovers BasePlugin subclasses
+- Plugins placed in `plugins/contrib/` are loaded automatically
+- Custom plugin directories supported via `--plugins-dir` CLI option
+
+## CLI Commands
 ```bash
-tgartifacts info <path>                    # Quick structure info
-tgartifacts analyze <path>                 # Full analysis (no passcode needed if not set)
-tgartifacts analyze <path> --passcode "X"  # With passcode
-tgartifacts bruteforce <path> -a ACCOUNT   # Bruteforce passcode
+tgartifacts info <path> [-p passcode] [--show-keys]
+tgartifacts export-session <path> <output> [-p passcode] [-f json|telethon]
+tgartifacts extract-cache <path> <output_dir> [-p passcode]
+tgartifacts validate-session <string_session>
+tgartifacts plugin <plugin_name> <path> [-p passcode] [-o output] [--plugins-dir dir]
+tgartifacts list-plugins [--plugins-dir dir]
 ```
-
-## Coding Guidelines
-- Type hints everywhere
-- Docstrings for public methods
-- Use EXACT implementations from working tools (ntqbit/tdesktop-decrypter)
-- Error handling — graceful degradation
-- Forensic soundness — never modify source files
 
 ## Current Status
 ✅ TDF file format parser (magic TDF$, version, encrypted data, MD5)
@@ -137,54 +127,24 @@ tgartifacts bruteforce <path> -a ACCOUNT   # Bruteforce passcode
 ✅ Qt Data Stream parser (uint32, int32, uint64, QByteArray)
 ✅ Two-stage decryption (passcode_key → local_key)
 ✅ Account data file parsing ({account_dir}s)
-✅ MTP authorization extraction (user_id, dc_id)
+✅ MTP authorization extraction (user_id, dc_id, auth_keys)
 ✅ Settings blocks parsing (dbiMtpAuthorization 0x4B)
-✅ Media cache extraction (TDEF files from user_data/media_cache)
-✅ CLI commands (info, analyze, extract_cache)
-❌ Bruteforce module (not yet implemented)
-❌ Maps file parsing (storage index)
-❌ Auth keys extraction (DC auth keys)
-❌ Settings file parsing (settingss in tdata root)
-❌ JSON export/reports
-❌ Timeline generation
-❌ File type identification (python-magic integration)
+✅ Media cache extraction (TDEF files from user_data/media_cache and cache)
+✅ Streaming cache reassembly (multi-part media files)
+✅ File type detection via magic bytes
+✅ Session export (JSON, Telethon StringSession)
+✅ Session validation via Telegram API
+✅ Plugin system (BasePlugin, PluginManager, contrib directory)
+✅ CLI commands (info, export-session, extract-cache, validate-session, plugin, list-plugins)
 
-## Current Tasks (Priority Order)
-1. **Extract auth_keys from dbiMtpAuthorization block**
-   - Parse DC authorization keys (after user_id and dc_id)
-   - Store per-DC auth keys for each datacenter
-
-2. **Parse maps file** ({account_dir}/maps)
-   - Understand storage index structure
-   - Reference: ntqbit/tdesktop-decrypter for maps parsing logic
-   - Extract file metadata and locations
-
-3. **Parse settingss file** (tdata root)
-   - Extract application settings
-   - Identify relevant dbi* blocks
-
-4. **Implement JSON export**
-   - Create exporters/json_exporter.py
-   - Export account data, file lists, settings to structured JSON
-   - Schema: {accounts: [], media_cache: [], settings: {}}
-
-5. **Add python-magic integration**
-   - Install python-magic for file type identification
-   - Add magic bytes detection for extracted TDEF files
-   - Build statistics by file type
-
-6. **Timeline generation** (future)
-   - Extract timestamps from files
-   - Create chronological timeline of activity
-
-## File Type Identification Strategy
-- ✅ Use `python-magic` library (safe, no injection risks)
-- ❌ Do NOT use binwalk (command injection vulnerability)
-- ❌ Do NOT manually hardcode all signatures (impractical)
+## Coding Guidelines
+- Type hints everywhere
+- No comments unless logic is non-obvious
+- Forensic soundness — never modify source files
+- Error handling — graceful degradation, informative messages
+- Plugins must only access data through PluginContext
 
 ## References
 - Telegram Desktop source: https://github.com/telegramdesktop/tdesktop
-- tdesktop-decrypter (WORKING TOOL): https://github.com/ntqbit/tdesktop-decrypter
-  - Has good maps file parsing implementation
-  - Reference for auth_keys extraction
+- tdesktop-decrypter: https://github.com/ntqbit/tdesktop-decrypter
 - telegram-desktop-decrypt: https://github.com/atilaromero/telegram-desktop-decrypt

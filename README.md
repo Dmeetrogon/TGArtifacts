@@ -12,6 +12,8 @@ CLI forensic tool for Telegram Desktop artifact analysis. Extract and analyze da
 - Decrypt and extract cached media files (images, videos, documents)
 - Validate extracted sessions via Telegram API
 - Support for passcode-protected tdata
+- Bruteforce passcode (dictionary attack and precomputed keys)
+- Plugin system for community extensions
 
 ## Installation
 
@@ -20,7 +22,7 @@ git clone --depth 1 https://github.com/Dmeetrogon/TGArtifacts.git && cd TGArtifa
 ```
 
 ```bash
-python3 -m venv venv && sourcu venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 ```
 
 ```bash
@@ -36,7 +38,7 @@ pip install -e ".[dev]"
 ### Requirements
 
 - Python 3.10+
-- Dependencies: click, tgcrypto, rich, python-magic
+- Dependencies: click, tgcrypto, rich, python-magic, telethon
 
 ## Usage
 
@@ -80,16 +82,49 @@ tgartifacts extract-cache /path/to/tdata ./output
 
 ### Validate session
 
-Validate an extracted Telethon StringSession:
-
 ```bash
 tgartifacts validate-session "1AgAAAAA..."
 ```
 
-Requires `telethon` package:
+### Plugins
+
+List available plugins:
 
 ```bash
-pip install telethon
+tgartifacts list-plugins
+```
+
+Run a plugin:
+
+```bash
+tgartifacts plugin hash-report /path/to/tdata
+```
+
+Run with custom plugins directory:
+
+```bash
+tgartifacts plugin my-analyzer /path/to/tdata --plugins-dir ~/my-plugins/
+```
+
+### Writing a plugin
+
+Create a `.py` file in the `plugins/contrib/` directory or any custom directory:
+
+```python
+from tgartifacts.plugins import BasePlugin, PluginContext
+
+
+class MyPlugin(BasePlugin):
+    name = "my-plugin"
+    description = "My custom analyzer"
+    version = "0.1.0"
+
+    def run(self, context: PluginContext):
+        # context.tdata_path — path to tdata directory
+        # context.accounts — list of parsed accounts
+        # context.cache_files — list of cached TDEF file paths
+        # context.output_dir — output directory (optional)
+        return {"result": "done"}
 ```
 
 ## tdata Location
@@ -102,42 +137,44 @@ Default `tdata` paths:
 | macOS | `~/Library/Application Support/Telegram Desktop/tdata` |
 | Linux | `~/.local/share/TelegramDesktop/tdata` |
 
-### Or you can find `tdata` folder  commands:
+### Finding tdata
 
-Linux 
+Linux / macOS:
 ```bash
 find / -name "tdata" 2>/dev/null
 ```
-MacOS
-```bash
-find / -name "tdata" 2>/dev/null
-```
-Windows
-```bash
-dir C:\tdata /s /b /ad 2>null
-```
 
+Windows:
+```bash
+dir C:\tdata /s /b /ad 2>nul
+```
 
 ## Project Structure
 
 ```
 tgartifacts/
-├── cli.py              # CLI interface
+├── cli.py                        # CLI interface (click)
 ├── crypto/
-│   ├── decryptor.py    # AES decryption for tdata files
-│   └── keys.py         # Key derivation (PBKDF2, local key)
+│   ├── decryptor.py              # AES decryption (TDF, TDEF)
+│   └── keys.py                   # Key derivation (PBKDF2, local key)
 ├── parsers/
-│   ├── tdata_parser.py # Main tdata parser
-│   ├── tdf_reader.py   # TDF file format reader
-│   └── qt_stream.py    # Qt data stream parser
+│   ├── tdata_parser.py           # Main tdata directory parser
+│   ├── tdf_reader.py             # TDF file format reader
+│   └── qt_stream.py              # Qt Data Stream parser
+├── plugins/
+│   ├── base.py                   # BasePlugin, PluginContext
+│   ├── manager.py                # PluginManager (discovery, loading)
+│   └── contrib/                  # Built-in plugins
+│       └── hash_report.py        # SHA-256 hash report
 ├── models/
-│   └── account.py      # Account data models
+│   └── account.py                # Account data models
 ├── exporters/
-│   └── json_exporter.py
+│   ├── json_exporter.py          # JSON export
+│   └── report.py                 # Report generation
 └── utils/
-    ├── session_validator.py  # Telethon session validation
-    ├── extension_detector.py # File type detection
-    └── timeline.py
+    ├── session_validator.py      # Telethon session validation
+    ├── extension_detector.py     # File type detection (magic bytes)
+    └── timeline.py               # Timeline generation
 ```
 
 ## License
