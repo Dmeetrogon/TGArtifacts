@@ -13,7 +13,7 @@ class ExportSessionModule(BaseModule):
     @property
     def help_text(self):
         return (
-            "Export session data from a tdata directory.\n"
+            "Export session data from tdata (JSON or Telethon StringSession).\n"
             "\n"
             "Extracts auth keys and session data from all accounts found in tdata "
             "and saves them in the chosen format.\n"

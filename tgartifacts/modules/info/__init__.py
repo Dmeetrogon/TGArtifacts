@@ -13,7 +13,7 @@ class InfoModule(BaseModule):
     @property
     def help_text(self):
         return (
-            "Show detailed information about a tdata directory.\n"
+            "Show information about a tdata directory.\n"
             "\n"
             "\b\n"
             "Displays:\n"

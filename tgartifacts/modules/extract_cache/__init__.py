@@ -13,7 +13,7 @@ class ExtractCacheModule(BaseModule):
     @property
     def help_text(self):
         return (
-            "Extract and decrypt cached TDEF files from a tdata directory.\n"
+            "Extract and decrypt cached TDEF files.\n"
             "\n"
             "Finds all cached TDEF (Telegram Desktop Encrypted File) entries, "
             "decrypts them, and saves the plaintext files to the output directory. "

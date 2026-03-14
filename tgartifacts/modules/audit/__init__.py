@@ -13,7 +13,7 @@ class AuditModule(BaseModule):
     @property
     def help_text(self):
         return (
-            "Security audit of a tdata directory.\n"
+            "Security audit of a tdata directory with MITRE mapping.\n"
             "\n"
             "Performs automated security checks and maps findings to MITRE ATT&CK "
             "and D3FEND frameworks.\n"

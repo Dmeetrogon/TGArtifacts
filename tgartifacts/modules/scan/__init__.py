@@ -15,8 +15,10 @@ class ScanModule(BaseModule):
         return (
             "Auto-detect Telegram Desktop tdata directories.\n"
             "\n"
+            "Searches standard installation locations and optional custom paths.\n"
+            "\n"
             "\b\n"
-            "Searches standard installation locations:\n"
+            "Searches:\n"
             "  - Native install (~/.local/share/TelegramDesktop)\n"
             "  - Snap (~/snap/telegram-desktop)\n"
             "  - Flatpak (~/.var/app/org.telegram.desktop)\n"
