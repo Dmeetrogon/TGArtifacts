@@ -16,7 +16,7 @@ def command(plugin_name: str, tdata_path: str, passcode: Optional[str],
     from ...parsers.tdata_parser import TDataParser
 
     manager = PluginManager()
-    builtin_dir = Path(__file__).parent.parent.parent / 'plugins' / 'contrib'
+    builtin_dir = Path(__file__).parent.parent.parent / 'plugins'
     manager.load_from_directory(builtin_dir)
 
     if plugins_dir:

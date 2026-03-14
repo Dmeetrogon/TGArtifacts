@@ -10,7 +10,7 @@ def command(plugins_dir: Optional[str]):
     from ...plugins import PluginManager
 
     manager = PluginManager()
-    builtin_dir = Path(__file__).parent.parent.parent / 'plugins' / 'contrib'
+    builtin_dir = Path(__file__).parent.parent.parent / 'plugins'
     manager.load_from_directory(builtin_dir)
 
     if plugins_dir:
