@@ -1,8 +1,23 @@
-from  .MTPAuthorization import MTPAuthorization
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+from .MTPAuthorization import MTPAuthorization
+
+
+@dataclass
 class Account:
-    def __init__(self,mtp_data: MTPAuthorization, files_names:list[str],files_count:int):
-        self.mtp_data = mtp_data
-        self.files_names = files_names
-        if len(files_names) != 0 and len(files_names) != files_count:
-            self.files_count = len(files_names)
-        #TODO make this class done. This is needed for reports generations
+    mtp_data: MTPAuthorization
+    account_dir: str
+    files: List[str] = field(default_factory=list)
+
+    @property
+    def user_id(self) -> int:
+        return self.mtp_data.user_id
+
+    @property
+    def dc_id(self) -> int:
+        return self.mtp_data.dc_id
+
+    @property
+    def files_count(self) -> int:
+        return len(self.files)

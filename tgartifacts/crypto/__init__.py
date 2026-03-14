@@ -1,15 +1,7 @@
-"""Cryptography module for Telegram Desktop file decryption."""
-
 from .decryptor import Decryptor
-from .keys import (
-    get_key_datas_version,
-    create_local_key,
-    get_local_key_from_key_datas
-)
+from .keys import get_key_datas_version, create_local_key, get_local_key
 
 __all__ = [
-    'Decryptor',
-    'get_key_datas_version',
-    'create_local_key',
-    'get_local_key_from_key_datas'
+    'Decryptor', 'get_key_datas_version', 'create_local_key',
+    'get_local_key',
 ]
