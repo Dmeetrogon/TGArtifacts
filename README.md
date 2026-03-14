@@ -13,14 +13,14 @@ CLI forensic tool for Telegram Desktop artifact analysis. Extract and analyze da
 - Decrypt and extract cached media files (images, videos, documents)
 - Validate extracted sessions via Telegram API
 - Security audit with MITRE ATT&CK / D3FEND mapping
-- Bruteforce passcode (dictionary attack and precomputed rainbow tables)
+- Bruteforce passcode (dictionary attack)
 - Modular architecture with auto-discovery
 - Plugin system for community extensions
 
 ## Installation
 
 ```bash
-git clone --depth 1 https://github.com/Dmeetrogon/TGArtifacts.git && cd TGArtifacts
+git clone --depth 1 <repo-url> && cd TGArtifacts
 ```
 
 ```bash
@@ -108,16 +108,16 @@ tgartifacts validate-session "1AgAAAAA..."
 ```bash
 tgartifacts list-plugins
 tgartifacts plugin hash-report /path/to/tdata
+tgartifacts plugin report-generator /path/to/tdata -o ./output -p "passcode"
 tgartifacts plugin my-analyzer /path/to/tdata --plugins-dir ~/my-plugins/
 ```
 
 ### Writing a plugin
 
-Create a `.py` file in `plugins/contrib/` or any custom directory:
+Create a directory in `plugins/` with an `__init__.py`:
 
 ```python
 from tgartifacts.plugins import BasePlugin, PluginContext
-
 
 class MyPlugin(BasePlugin):
     name = "my-plugin"
@@ -155,6 +155,21 @@ module = MyModule()
 ```
 
 Modules are auto-discovered and registered at startup.
+
+## Testing
+
+```bash
+pip install -e ".[dev]"
+pytest tests/
+pytest tests/ -v              # verbose
+pytest tests/unit/             # unit tests only
+pytest tests/integration/      # integration tests only
+pytest -m "not slow"           # skip slow bruteforce tests
+```
+
+102 tests covering:
+- Unit tests (UT-001..070): TDF parser, key derivation, AES decryption, extension detection, MTP authorization, StringSession, module system, bruteforcer, auditor
+- Integration tests (TC-01..26): info, export-session, extract-cache, bruteforce, audit, scan
 
 ## tdata Location
 
@@ -197,11 +212,11 @@ tgartifacts/
 │   └── qt_stream.py              # Qt Data Stream
 ├── plugins/
 │   ├── base.py                   # BasePlugin, PluginContext
-│   ├── manager.py                # PluginManager
-│   └── contrib/                  # Built-in plugins
-├── exporters/
-│   ├── json_exporter.py          # JSON export
-│   └── report.py                 # Report generation
+│   ├── manager.py                # PluginManager (dynamic loading)
+│   ├── hash_report/              # SHA-256 + MD5 hash report
+│   └── report_generator/         # Full forensic HTML + JSON report
+├── models/
+│   └── MTPAuthorization.py       # MTP auth data model
 └── utils/
     ├── extension_detector.py     # File type detection (magic bytes)
     └── session_validator.py      # Telethon session validation
@@ -210,7 +225,3 @@ tgartifacts/
 ## License
 
 MIT License - see [LICENSE](LICENSE) file.
-
-## Author
-
-Dmeetrogon

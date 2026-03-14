@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Dmeetrogon"}
+    {name = "Anonymous"}
 ]
 keywords = ["telegram", "forensics", "tdata", "cli"]
 classifiers = [
@@ -45,3 +45,10 @@ tgartifacts = "tgartifacts.cli:cli"
 where = ["."]
 include = ["tgartifacts*"]
 exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: tests that hit real Telegram API",
+    "slow: slow tests (bruteforce)",
+]

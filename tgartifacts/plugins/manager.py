@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 from pathlib import Path
 from typing import Dict, Type
 
@@ -45,9 +46,13 @@ class PluginManager:
             init_file = subdir / "__init__.py"
             if not init_file.exists():
                 continue
-            module_name = f"plugin_{subdir.name}"
-            spec = importlib.util.spec_from_file_location(module_name, str(init_file))
+            module_name = f"_plugin_{subdir.name}"
+            spec = importlib.util.spec_from_file_location(
+                module_name, str(init_file),
+                submodule_search_locations=[str(subdir)],
+            )
             module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
             self._register_from_module(module)
 

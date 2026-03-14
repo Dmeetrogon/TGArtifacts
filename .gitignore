@@ -209,6 +209,8 @@ __marimo__/
 .idea/
 .claude/
 agents.md
+CONTEXT.md
+docs/test_cases.md
 
 # Telegram sessions (sensitive data)
 check_session.py
@@ -217,6 +219,8 @@ check_session.py
 
 # Test tdata directories (may contain real keys)
 test_tdata/
+tdata_test/
+tdata_test*.zip
 *.tdata/
 
 # Extracted artifacts (output of extract-cache)
