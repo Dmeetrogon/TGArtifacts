@@ -8,5 +8,5 @@ def detect_media_extension(data: bytes) -> str:
     mime = magic.from_buffer(data, mime=True)
     extension = mimetypes.guess_extension(mime)
     if extension is None or extension == "None":
-        return ".bin"
+        extension = ".bin"
     return extension

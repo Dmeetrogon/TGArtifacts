@@ -117,7 +117,7 @@ class Decryptor:
         if not version_dirs:
             raise FileNotFoundError("No directories found in media_cache")
         cache_dir = version_dirs[0]
-        stats = {'total': 0, 'success': 0, 'failed': 0, 'streaming': 0}
+        stats = {'total': 0, 'success': 0, 'failed': 0, 'streaming': 0, 'partial':0}
         for subfolder in cache_dir.iterdir():
             if not subfolder.is_dir():
                 continue
@@ -132,6 +132,11 @@ class Decryptor:
                             stats['streaming'] += 1
                         else:
                             final_data = decrypted_data
+
+                        if final_data[:8] == b"partial:":
+                            final_data = final_data[8:]
+                            stats['partial']+=1
+                            
                         ext = detect_media_extension(final_data)
                         output_path = output_dir / f"{file_path.name}{ext}"
                         with open(output_path, 'wb') as out_file:
