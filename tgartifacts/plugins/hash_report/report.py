@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .hasher import compute_hashes, detect_type
+from .hasher import compute_hashes
 
 
 def collect_entries(files: List[Path]) -> Dict[str, list]:
@@ -10,7 +10,7 @@ def collect_entries(files: List[Path]) -> Dict[str, list]:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     for file_path in files:
-        file_type = detect_type(file_path)
+        file_type = "".join(file_path.split('.')[1:])
         hashes = compute_hashes(file_path)
         entry = {
             "name": file_path.name,
@@ -20,7 +20,6 @@ def collect_entries(files: List[Path]) -> Dict[str, list]:
             "timestamp": timestamp,
         }
         by_type.setdefault(file_type, []).append(entry)
-
     return by_type
 
 
