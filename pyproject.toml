@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tgartifacts"
-version = "0.1.0"
+version = "0.1.1"
 description = "CLI forensic tool for Telegram Desktop artifact analysis"
 readme = "README.md"
 requires-python = ">=3.10"
