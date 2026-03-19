@@ -84,6 +84,12 @@ def collect_report_data(tdata_path: Path, passcode: Optional[str], output_dir: P
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     parser = TDataParser(str(tdata_path), passcode)
+
+    try:
+        settings = parser.get_settings_info()
+    except Exception:
+        settings = {}
+
     accounts_info = parser.get_all_accounts_info()
 
     cache_dir = output_dir / "cache"
@@ -117,12 +123,48 @@ def collect_report_data(tdata_path: Path, passcode: Optional[str], output_dir: P
         ],
     }
 
+    settings_data = {}
+    if settings:
+        settings_data = {
+            "tdesktop_version": parser.tdesktop_version,
+            "auto_start": settings.get("auto_start"),
+            "start_minimized": settings.get("start_minimized"),
+            "send_to_menu": settings.get("send_to_menu"),
+            "auto_update": settings.get("auto_update"),
+            "last_update_check": settings.get("last_update_check"),
+            "scale_percent": settings.get("scale_percent"),
+            "auto_lock": settings.get("auto_lock"),
+            "power_saving": settings.get("power_saving"),
+            "phone_number": settings.get("phone_number"),
+            "download_path": settings.get("download_path"),
+            "dialog_last_path": settings.get("dialog_last_path"),
+            "lang_pack_key": settings.get("lang_pack_key"),
+            "send_key": settings.get("send_key"),
+            "theme": settings.get("theme"),
+            "background": settings.get("background"),
+            "window_position": settings.get("window_position"),
+            "connection": settings.get("connection"),
+        }
+        config = settings.get("production_config")
+        if config:
+            dc_opts = config.get("dc_options", [])
+            settings_data["production_config"] = {
+                "dc_count": len({opt["dc_id"] for opt in dc_opts}),
+                "dc_options_total": len(dc_opts),
+                "chat_size_max": config.get("chat_size_max"),
+                "megagroup_size_max": config.get("megagroup_size_max"),
+                "forwarded_count_max": config.get("forwarded_count_max"),
+                "edit_time_limit": config.get("edit_time_limit"),
+                "revoke_time_limit": config.get("revoke_time_limit"),
+            }
+
     return {
         "metadata": {
             "timestamp": timestamp,
             "tdata_path": str(tdata_path),
             "passcode_provided": passcode is not None,
         },
+        "settings": settings_data,
         "accounts": accounts,
         "cache": cache_stats,
         "hashes": hash_data,

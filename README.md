@@ -57,7 +57,7 @@ tgartifacts info /path/to/tdata
 tgartifacts info /path/to/tdata -p "passcode" -k
 ```
 
-Displays User ID, DC ID, auth key IDs, passcode status, cached TDEF file count. Use `--show-keys` / `-k` to print full 512-char hex auth keys.
+Displays TDesktop version, decrypted settings (auto start, auto update, phone number, download path, language, theme, window position, proxy/connection type, DC options, chat/megagroup limits), account info (User ID, DC ID, auth key IDs, passcode status), cached TDEF file count. Use `--show-keys` / `-k` to print full 512-char hex auth keys.
 
 ### `audit` — Security audit
 

@@ -5,7 +5,6 @@ import pytest
 from tgartifacts.utils.extension_detector import detect_media_extension
 
 
-# Proper magic byte headers that python-magic recognizes
 PNG_HEADER = (
     b'\x89PNG\r\n\x1a\n'
     b'\x00\x00\x00\rIHDR'

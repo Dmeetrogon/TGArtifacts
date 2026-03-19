@@ -35,8 +35,6 @@ class TestBruteforce:
         wl.write_text("wrong1\nwrong2\n")
         result = runner.invoke(cli, ['bruteforce', str(no_pass_tdata), '-w', str(wl)])
         assert result.exit_code == 0
-        # Bruteforcer skips empty passcodes (by design), so non-protected tdata
-        # can't be "found" via bruteforce
         assert 'Passcode not found' in result.output
 
     def test_tc21_bruteforce_shows_stats(self, cli_runner, with_pass_tdata, tmp_path):

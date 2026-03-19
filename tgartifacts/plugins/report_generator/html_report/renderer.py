@@ -117,6 +117,106 @@ code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 0.9
 """
 
 
+def _render_settings(settings: Dict[str, Any]) -> str:
+    if not settings:
+        return ""
+
+    version = settings.get("tdesktop_version", "N/A")
+
+    bool_rows = ""
+    for key, label in [
+        ("auto_start", "Auto start"),
+        ("start_minimized", "Start minimized"),
+        ("send_to_menu", "Send to menu"),
+        ("auto_update", "Auto update"),
+    ]:
+        val = settings.get(key)
+        if val is not None:
+            color = "#166534" if val else "#dc2626"
+            bool_rows += f"<tr><td>{label}</td><td style='color:{color}'>{val}</td></tr>"
+
+    detail_rows = ""
+    if settings.get("last_update_check") and settings["last_update_check"] > 0:
+        from datetime import datetime
+        try:
+            dt = datetime.fromtimestamp(settings["last_update_check"])
+            detail_rows += f"<tr><td>Last update check</td><td>{dt.strftime('%Y-%m-%d %H:%M:%S')}</td></tr>"
+        except (OSError, ValueError):
+            detail_rows += f"<tr><td>Last update check</td><td>{settings['last_update_check']}</td></tr>"
+
+    scale = settings.get("scale_percent")
+    if scale is not None:
+        detail_rows += f"<tr><td>Scale</td><td>{'auto' if scale == 0 else f'{scale}%'}</td></tr>"
+
+    if settings.get("auto_lock") is not None:
+        detail_rows += f"<tr><td>Auto lock</td><td>{settings['auto_lock']}s</td></tr>"
+
+    if settings.get("power_saving") is not None:
+        detail_rows += f"<tr><td>Power saving</td><td>{settings['power_saving']}</td></tr>"
+
+    if settings.get("phone_number"):
+        detail_rows += f"<tr><td>Phone number</td><td><b>{escape(str(settings['phone_number']))}</b></td></tr>"
+
+    if settings.get("download_path"):
+        detail_rows += f"<tr><td>Download path</td><td><code>{escape(str(settings['download_path']))}</code></td></tr>"
+
+    if settings.get("dialog_last_path"):
+        detail_rows += f"<tr><td>Last dialog path</td><td><code>{escape(str(settings['dialog_last_path']))}</code></td></tr>"
+
+    if settings.get("lang_pack_key"):
+        detail_rows += f"<tr><td>Language</td><td>{escape(str(settings['lang_pack_key']))}</td></tr>"
+
+    send_key = settings.get("send_key")
+    if send_key is not None:
+        sk = {0: "Enter", 1: "Ctrl+Enter"}.get(send_key, str(send_key))
+        detail_rows += f"<tr><td>Send key</td><td>{sk}</td></tr>"
+
+    theme = settings.get("theme")
+    if theme:
+        mode = "night" if theme.get("night_mode") else "day"
+        detail_rows += f"<tr><td>Theme mode</td><td>{mode}</td></tr>"
+
+    bg = settings.get("background")
+    if bg:
+        detail_rows += f"<tr><td>Background ID</td><td>day={bg.get('day', 0)}, night={bg.get('night', 0)}</td></tr>"
+
+    wp = settings.get("window_position")
+    if wp:
+        detail_rows += f"<tr><td>Window position</td><td>{wp.get('w', 0)}x{wp.get('h', 0)} at ({wp.get('x', 0)}, {wp.get('y', 0)})</td></tr>"
+
+    conn = settings.get("connection")
+    if conn:
+        ctype = {0: "auto", 1: "HTTP proxy", 2: "TCP proxy", 3: "MTPROTO proxy"}.get(
+            conn.get("type", 0), str(conn.get("type", 0))
+        )
+        detail_rows += f"<tr><td>Connection type</td><td>{ctype}</td></tr>"
+        if conn.get("proxy_host"):
+            detail_rows += f"<tr><td>Proxy</td><td>{escape(str(conn['proxy_host']))}:{conn.get('proxy_port', 0)}</td></tr>"
+
+    config = settings.get("production_config")
+    config_rows = ""
+    if config:
+        config_rows = f"""
+            <tr><td>DC count</td><td>{config.get('dc_count', 'N/A')}</td></tr>
+            <tr><td>DC options total</td><td>{config.get('dc_options_total', 'N/A')}</td></tr>
+            <tr><td>Chat size max</td><td>{config.get('chat_size_max', 'N/A')}</td></tr>
+            <tr><td>Megagroup size max</td><td>{config.get('megagroup_size_max', 'N/A')}</td></tr>
+            <tr><td>Forwarded count max</td><td>{config.get('forwarded_count_max', 'N/A')}</td></tr>
+            <tr><td>Edit time limit</td><td>{config.get('edit_time_limit', 'N/A')}</td></tr>
+            <tr><td>Revoke time limit</td><td>{config.get('revoke_time_limit', 'N/A')}</td></tr>"""
+
+    return f"""
+    <section>
+        <h2>Decrypted Settings</h2>
+        <p>TDesktop version: <b>{version}</b></p>
+        <table>
+            {bool_rows}
+            {detail_rows}
+        </table>
+        {f'<h3>Production Config</h3><table>{config_rows}</table>' if config_rows else ''}
+    </section>"""
+
+
 def _render_timeline(timeline: Dict[str, Any]) -> str:
     if not timeline:
         return ""
@@ -187,6 +287,7 @@ def render_html(data: Dict[str, Any], output_path: Path) -> None:
 <body>
     <h1>TGArtifacts Report</h1>
     {_render_metadata(data.get('metadata', {}))}
+    {_render_settings(data.get('settings', {}))}
     <section>
         <h2>Accounts ({len(data.get('accounts', []))})</h2>
         {accounts_html}

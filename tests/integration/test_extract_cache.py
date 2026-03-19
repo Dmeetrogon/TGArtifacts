@@ -12,7 +12,6 @@ class TestExtractCache:
         runner, cli = cli_runner
         result = runner.invoke(cli, ['extract-cache', str(no_pass_tdata), str(output_dir)])
         assert result.exit_code == 0
-        # Should either find files or report none
         assert 'Extraction complete' in result.output or 'No cached TDEF files found' in result.output
 
     def test_tc14_extract_with_pass(self, cli_runner, with_pass_tdata, output_dir):

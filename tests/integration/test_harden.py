@@ -11,7 +11,6 @@ class TestHarden:
 
     def test_harden_fixes_permissions(self, cli_runner, no_pass_tdata, tmp_path):
         """Harden plugin fixes world-readable key_datas when user confirms."""
-        # Copy tdata to tmp so we can modify permissions
         target = tmp_path / "tdata_copy"
         shutil.copytree(no_pass_tdata, target)
         key_datas = target / "key_datas"
@@ -22,7 +21,6 @@ class TestHarden:
         assert result.exit_code == 0
         assert 'FIXED' in result.output
         assert 'Applied:' in result.output
-        # Verify permissions were actually changed
         assert oct(key_datas.stat().st_mode)[-3:] == '600'
 
     def test_harden_skips_on_deny(self, cli_runner, no_pass_tdata, tmp_path):

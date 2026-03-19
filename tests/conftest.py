@@ -8,7 +8,6 @@ TDATA_TEST = Path(__file__).parent.parent / "tdata_test"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-# --------------- pytest-html hooks ---------------
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "live: tests that hit real Telegram API")
@@ -48,7 +47,6 @@ def pytest_runtest_makereport(item, call):
     report.description = str(item.function.__doc__ or "")
 
 
-# --------------- tdata fixtures ---------------
 
 @pytest.fixture
 def no_pass_tdata():
@@ -82,7 +80,22 @@ def with_pass_multi_tdata():
     return path, "penguin"
 
 
-# --------------- fixture files ---------------
+@pytest.fixture
+def old_no_pass_tdata():
+    path = TDATA_TEST / "tdata_old_without"
+    if not path.exists():
+        pytest.skip("tdata_test/tdata_old_without not available")
+    return path
+
+
+@pytest.fixture
+def old_with_pass_tdata():
+    path = TDATA_TEST / "tdata_old_with"
+    if not path.exists():
+        pytest.skip("tdata_test/tdata_old_with not available")
+    return path, "penguin"
+
+
 
 @pytest.fixture
 def key_datas_fixture():
@@ -100,7 +113,6 @@ def sample_tdef_fixture():
     return path
 
 
-# --------------- CLI runner ---------------
 
 @pytest.fixture
 def cli_runner():
@@ -109,7 +121,6 @@ def cli_runner():
     return CliRunner(), cli
 
 
-# --------------- tmp output dir ---------------
 
 @pytest.fixture
 def output_dir(tmp_path):

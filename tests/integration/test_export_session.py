@@ -30,7 +30,6 @@ class TestExportSessionJson:
         assert result.exit_code == 0
         data = json.loads(out_file.read_text())
         assert len(data) >= 1
-        # Auth key hex should be 512 chars
         for acc in data:
             for dc_str, key_hex in acc.get('auth_keys', {}).items():
                 assert len(key_hex) == 512
@@ -57,7 +56,6 @@ class TestExportSessionTelethon:
         assert result.exit_code == 0
         content = out_file.read_text()
         lines = [l for l in content.strip().split('\n') if l.strip()]
-        # Should have comment lines starting with # and session line starting with 1
         session_lines = [l for l in lines if not l.startswith('#')]
         assert len(session_lines) >= 1
         assert session_lines[0].startswith('1')
