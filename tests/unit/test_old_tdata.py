@@ -10,16 +10,19 @@ from tgartifacts.crypto.keys import get_local_key, decrypt_key_datas_info
 class TestOldTdfReader:
 
     def test_old_key_datas_version(self, old_no_pass_tdata):
+        """Old key_datas has version 4016010 with valid MD5."""
         tdf = read_tdf(str(old_no_pass_tdata / "key_datas"))
         assert tdf["version"] == 4016010
         assert tdf["md5_valid"] is True
 
     def test_old_settingss_version(self, old_no_pass_tdata):
+        """Old settingss has version 4016010 with valid MD5."""
         tdf = read_tdf(str(old_no_pass_tdata / "settingss"))
         assert tdf["version"] == 4016010
         assert tdf["md5_valid"] is True
 
     def test_old_with_pass_version(self, old_with_pass_tdata):
+        """Old password-protected key_datas has version 4016010."""
         path, _ = old_with_pass_tdata
         tdf = read_tdf(str(path / "key_datas"))
         assert tdf["version"] == 4016010
@@ -28,26 +31,31 @@ class TestOldTdfReader:
 class TestOldKeyDerivation:
 
     def test_old_local_key_length(self, old_no_pass_tdata):
+        """Old tdata derives a 256-byte local key."""
         local_key = get_local_key(old_no_pass_tdata)
         assert len(local_key) == 256
 
     def test_old_account_indexes(self, old_no_pass_tdata):
+        """Old tdata contains account index 0."""
         local_key = get_local_key(old_no_pass_tdata)
         info = decrypt_key_datas_info(old_no_pass_tdata, local_key)
         assert "account_indexes" in info
         assert 0 in info["account_indexes"]
 
     def test_old_with_pass_local_key(self, old_with_pass_tdata):
+        """Old tdata with password derives a 256-byte local key."""
         path, passcode = old_with_pass_tdata
         local_key = get_local_key(path, passcode=passcode)
         assert len(local_key) == 256
 
     def test_old_vs_new_keys_differ(self, old_no_pass_tdata, no_pass_tdata):
+        """Local keys from old and new tdata are different."""
         old_key = get_local_key(old_no_pass_tdata)
         new_key = get_local_key(no_pass_tdata)
         assert old_key != new_key
 
     def test_old_wrong_password_fails(self, old_with_pass_tdata):
+        """Wrong password on old tdata produces failed account info."""
         path, _ = old_with_pass_tdata
         parser = TDataParser(str(path), passcode="wrongpass")
         accounts = parser.get_all_accounts_info()
@@ -58,10 +66,12 @@ class TestOldKeyDerivation:
 class TestOldSettingsParsing:
 
     def test_old_tdesktop_version(self, old_no_pass_tdata):
+        """TDataParser reports version 4016010 for old tdata."""
         parser = TDataParser(str(old_no_pass_tdata))
         assert parser.tdesktop_version == 4016010
 
     def test_old_settings_keys(self, old_no_pass_tdata):
+        """Old tdata settings contain user_id and dc_id."""
         parser = TDataParser(str(old_no_pass_tdata))
         settings = parser.get_settings_info()
         assert isinstance(settings, dict)
@@ -70,6 +80,7 @@ class TestOldSettingsParsing:
         assert "dc_id" in settings
 
     def test_old_settings_booleans(self, old_no_pass_tdata):
+        """Old tdata settings contain boolean flags (auto_start, auto_update, etc)."""
         parser = TDataParser(str(old_no_pass_tdata))
         settings = parser.get_settings_info()
         for key in ["auto_start", "start_minimized", "send_to_menu", "auto_update"]:
@@ -77,6 +88,7 @@ class TestOldSettingsParsing:
             assert isinstance(settings[key], bool)
 
     def test_old_settings_production_config(self, old_no_pass_tdata):
+        """Old tdata production_config contains DC options for at least 3 DCs."""
         parser = TDataParser(str(old_no_pass_tdata))
         settings = parser.get_settings_info()
         assert "production_config" in settings
@@ -86,6 +98,7 @@ class TestOldSettingsParsing:
         assert len(dc_ids) >= 3
 
     def test_old_settings_theme(self, old_no_pass_tdata):
+        """Old tdata settings contain theme with day, night, night_mode."""
         parser = TDataParser(str(old_no_pass_tdata))
         settings = parser.get_settings_info()
         assert "theme" in settings
@@ -95,6 +108,7 @@ class TestOldSettingsParsing:
         assert "night_mode" in theme
 
     def test_old_with_pass_settings(self, old_with_pass_tdata):
+        """Old tdata with password decrypts settings with user_id."""
         path, passcode = old_with_pass_tdata
         parser = TDataParser(str(path), passcode=passcode)
         settings = parser.get_settings_info()
@@ -105,24 +119,28 @@ class TestOldSettingsParsing:
 class TestSettingsFields:
 
     def test_settings_auto_start(self, no_pass_tdata):
+        """Settings auto_start is a boolean."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         assert "auto_start" in settings
         assert isinstance(settings["auto_start"], bool)
 
     def test_settings_auto_update(self, no_pass_tdata):
+        """Settings auto_update is a boolean."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         assert "auto_update" in settings
         assert isinstance(settings["auto_update"], bool)
 
     def test_settings_scale_percent(self, no_pass_tdata):
+        """Settings scale_percent is an integer."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         assert "scale_percent" in settings
         assert isinstance(settings["scale_percent"], int)
 
     def test_settings_theme_structure(self, no_pass_tdata):
+        """Settings theme contains day, night, and night_mode (bool)."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         assert "theme" in settings
@@ -133,6 +151,7 @@ class TestSettingsFields:
         assert isinstance(theme["night_mode"], bool)
 
     def test_settings_background_structure(self, no_pass_tdata):
+        """Settings background contains day and night wallpaper IDs."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         assert "background" in settings
@@ -141,6 +160,7 @@ class TestSettingsFields:
         assert "night" in bg
 
     def test_settings_production_config_limits(self, no_pass_tdata):
+        """Production config has correct chat/megagroup/forwarded limits."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         config = settings["production_config"]
@@ -149,6 +169,7 @@ class TestSettingsFields:
         assert config["forwarded_count_max"] == 100
 
     def test_settings_dc_options(self, no_pass_tdata):
+        """DC options contain dc_id, ip, and port for each entry."""
         parser = TDataParser(str(no_pass_tdata))
         settings = parser.get_settings_info()
         dc_opts = settings["production_config"]["dc_options"]
@@ -159,6 +180,7 @@ class TestSettingsFields:
             assert "port" in opt
 
     def test_settings_with_password(self, with_pass_tdata):
+        """Password-protected tdata decrypts settings with auto_start and production_config."""
         path, passcode = with_pass_tdata
         parser = TDataParser(str(path), passcode=passcode)
         settings = parser.get_settings_info()

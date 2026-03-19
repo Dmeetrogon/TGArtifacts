@@ -112,6 +112,7 @@ class TestDecryptTdfLegacy:
     """decrypt_tdf_legacy standalone function."""
 
     def test_roundtrip(self):
+        """Legacy encrypt → decrypt roundtrip with 136-byte auth key."""
         auth_key = os.urandom(136)
         original = b"legacy data"
         encrypted = _encrypt_tdf(original, auth_key)
