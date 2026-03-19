@@ -8,7 +8,7 @@ class BruteforceModule(BaseModule):
 
     @property
     def description(self):
-        return 'Bruteforce tdata passcode using a wordlist'
+        return 'Bruteforce tdata passcode using a wordlist. \nNote: this can be PAINFULLY slow'
 
     @property
     def help_text(self):

@@ -10,7 +10,7 @@ def collect_entries(files: List[Path]) -> Dict[str, list]:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     for file_path in files:
-        file_type = "".join(file_path.split('.')[1:])
+        file_type = "".join(file_path.suffix.split('.')[1:])
         hashes = compute_hashes(file_path)
         entry = {
             "name": file_path.name,

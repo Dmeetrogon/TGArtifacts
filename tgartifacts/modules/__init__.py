@@ -70,7 +70,7 @@ def register_modules(cli: click.Group) -> None:
 
     instances = {m['package']: m['instance'] for m in modules}
 
-    for importer, name, is_pkg in pkgutil.iter_modules(__path__):
+    for _, name, is_pkg in pkgutil.iter_modules(__path__):
         if not is_pkg or name.startswith('_'):
             continue
         try:

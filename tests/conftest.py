@@ -1,3 +1,6 @@
+import platform
+import sys
+
 import pytest
 from pathlib import Path
 
@@ -5,9 +8,44 @@ TDATA_TEST = Path(__file__).parent.parent / "tdata_test"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+# --------------- pytest-html hooks ---------------
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "live: tests that hit real Telegram API")
     config.addinivalue_line("markers", "slow: slow tests (bruteforce)")
+
+    try:
+        from importlib.metadata import version
+        project_version = version("tgartifacts")
+    except Exception:
+        project_version = "unknown"
+
+    config.stash["tgartifacts_version"] = project_version
+
+    if hasattr(config, "_metadata"):
+        config._metadata["Project"] = "TGArtifacts"
+        config._metadata["Version"] = project_version
+        config._metadata["Python"] = sys.version
+        config._metadata["Platform"] = platform.platform()
+
+
+def pytest_html_report_title(report):
+    report.title = "TGArtifacts Test Report"
+
+
+def pytest_html_results_table_header(cells):
+    cells.insert(2, "<th>Description</th>")
+
+
+def pytest_html_results_table_row(report, cells):
+    cells.insert(2, f"<td>{getattr(report, 'description', '')}</td>")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    report.description = str(item.function.__doc__ or "")
 
 
 # --------------- tdata fixtures ---------------

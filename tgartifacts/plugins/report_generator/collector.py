@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from tgartifacts.parsers.tdata_parser import TDataParser
 from tgartifacts.plugins.hash_report.report import generate_report
+from tgartifacts.plugins.timeline.analyzer import TimelineAnalyzer
 
 
 def _compute_auth_key_id(auth_key: bytes) -> str:
@@ -94,6 +95,28 @@ def collect_report_data(tdata_path: Path, passcode: Optional[str], output_dir: P
 
     accounts = _collect_accounts(accounts_info)
 
+    timeline_analyzer = TimelineAnalyzer(tdata_path, accounts_info)
+    timeline_report = timeline_analyzer.analyze()
+    timeline_data = {
+        "total_files": timeline_report.total_files,
+        "earliest": str(timeline_report.earliest) if timeline_report.earliest else None,
+        "latest": str(timeline_report.latest) if timeline_report.latest else None,
+        "anomalies": [
+            {
+                "severity": a.severity,
+                "title": a.title,
+                "detail": a.detail,
+                "mitre_id": a.mitre_id,
+                "events_count": len(a.events),
+            }
+            for a in timeline_report.anomalies
+        ],
+        "recent_activity": [
+            {"timestamp": str(e.timestamp), "path": e.path}
+            for e in timeline_report.events[-20:]
+        ],
+    }
+
     return {
         "metadata": {
             "timestamp": timestamp,
@@ -103,4 +126,5 @@ def collect_report_data(tdata_path: Path, passcode: Optional[str], output_dir: P
         "accounts": accounts,
         "cache": cache_stats,
         "hashes": hash_data,
+        "timeline": timeline_data,
     }

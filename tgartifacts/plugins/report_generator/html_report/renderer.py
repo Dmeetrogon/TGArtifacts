@@ -117,6 +117,59 @@ code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 0.9
 """
 
 
+def _render_timeline(timeline: Dict[str, Any]) -> str:
+    if not timeline:
+        return ""
+
+    anomaly_rows = ""
+    for a in timeline.get("anomalies", []):
+        sev = escape(a.get("severity", ""))
+        sev_class = "error-msg" if sev == "CRITICAL" else ""
+        anomaly_rows += (
+            f"<tr>"
+            f"<td class='{sev_class}'>{sev}</td>"
+            f"<td>{escape(a.get('title', ''))}</td>"
+            f"<td>{escape(a.get('detail', ''))}</td>"
+            f"<td><code>{escape(a.get('mitre_id', ''))}</code></td>"
+            f"</tr>"
+        )
+
+    activity_rows = ""
+    for e in timeline.get("recent_activity", []):
+        activity_rows += (
+            f"<tr>"
+            f"<td>{escape(str(e.get('timestamp', '')))}</td>"
+            f"<td><code>{escape(e.get('path', ''))}</code></td>"
+            f"</tr>"
+        )
+
+    anomalies_section = ""
+    if anomaly_rows:
+        anomalies_section = f"""
+            <h3>Anomalies</h3>
+            <table>
+                <tr><th>Severity</th><th>Title</th><th>Detail</th><th>MITRE</th></tr>
+                {anomaly_rows}
+            </table>"""
+
+    return f"""
+    <section>
+        <h2>Timeline Analysis</h2>
+        <table>
+            <tr><td>Files analyzed</td><td>{timeline.get('total_files', 0)}</td></tr>
+            <tr><td>Earliest activity</td><td>{escape(str(timeline.get('earliest', 'N/A')))}</td></tr>
+            <tr><td>Latest activity</td><td>{escape(str(timeline.get('latest', 'N/A')))}</td></tr>
+            <tr><td>Anomalies detected</td><td>{len(timeline.get('anomalies', []))}</td></tr>
+        </table>
+        {anomalies_section}
+        <h3>Recent Activity</h3>
+        <table>
+            <tr><th>Timestamp</th><th>Path</th></tr>
+            {activity_rows}
+        </table>
+    </section>"""
+
+
 def render_html(data: Dict[str, Any], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -140,6 +193,7 @@ def render_html(data: Dict[str, Any], output_path: Path) -> None:
     </section>
     {_render_cache(data.get('cache'))}
     {_render_hashes(data.get('hashes'))}
+    {_render_timeline(data.get('timeline'))}
 </body>
 </html>"""
 

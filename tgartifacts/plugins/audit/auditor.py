@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from ...parsers.tdf_reader import read_tdf
-from ...parsers.qt_stream import QtDataStreamReader
-from ...crypto.keys import create_local_key
-from ...crypto.decryptor import decrypt_tdf_legacy
+from tgartifacts.parsers.tdf_reader import read_tdf
+from tgartifacts.parsers.qt_stream import QtDataStreamReader
+from tgartifacts.crypto.keys import create_local_key
+from tgartifacts.crypto.decryptor import decrypt_tdf_legacy
 
 
 @dataclass
@@ -16,6 +16,9 @@ class Finding:
     title: str
     detail: str
     mitre_id: Optional[str] = None
+    remediation: Optional[str] = None
+    d3fend_id: Optional[str] = None
+    auto_fixable: bool = False
 
 
 @dataclass
@@ -83,7 +86,9 @@ class Auditor:
                 title='No passcode set',
                 detail='tdata is not protected by a local passcode. '
                        'Anyone with file access can extract auth keys and sessions.',
-                mitre_id='T1555'
+                mitre_id='T1555',
+                remediation='Set a local passcode in TDesktop: Settings → Privacy and Security → Local passcode',
+                d3fend_id='D3-MFA',
             ))
             return
 
@@ -92,7 +97,8 @@ class Auditor:
             severity='INFO',
             title='Passcode is set',
             detail='tdata is protected by a local passcode.',
-            mitre_id='D3-MFA'
+            mitre_id='D3-MFA',
+            d3fend_id='D3-MFA',
         ))
 
         for weak in WEAK_PASSCODES:
@@ -106,7 +112,9 @@ class Auditor:
                     title='Weak passcode detected',
                     detail=f'Passcode "{weak}" found in top-50 common passwords. '
                            f'Vulnerable to dictionary attack (T1110.002).',
-                    mitre_id='T1110.002'
+                    mitre_id='T1110.002',
+                    remediation='Change passcode to 12+ characters with mixed case, digits, and symbols',
+                    d3fend_id='D3-MFA',
                 ))
                 return
 
@@ -136,7 +144,10 @@ class Auditor:
                     title='key_datas is world-readable',
                     detail=f'Permissions: {oct(mode)[-3:]}. '
                            f'Any local user can read the encrypted key material.',
-                    mitre_id='T1005'
+                    mitre_id='T1005',
+                    remediation=f'Run: chmod 600 {key_datas}',
+                    d3fend_id='D3-FPE',
+                    auto_fixable=True,
                 ))
             elif group_readable:
                 report.file_permissions_ok = False
@@ -145,13 +156,17 @@ class Auditor:
                     title='key_datas is group-readable',
                     detail=f'Permissions: {oct(mode)[-3:]}. '
                            f'Other users in the same group can read key material.',
-                    mitre_id='T1005'
+                    mitre_id='T1005',
+                    remediation=f'Run: chmod 600 {key_datas}',
+                    d3fend_id='D3-FPE',
+                    auto_fixable=True,
                 ))
             else:
                 report.findings.append(Finding(
                     severity='INFO',
                     title='File permissions OK',
                     detail=f'key_datas permissions: {oct(mode)[-3:]}',
+                    d3fend_id='D3-FPE',
                 ))
         except OSError:
             pass
@@ -169,7 +184,10 @@ class Auditor:
                     title='tdata directory is world-accessible',
                     detail=f'Permissions: {oct(mode)[-3:]}. '
                            f'Other users can traverse the tdata directory.',
-                    mitre_id='T1005'
+                    mitre_id='T1005',
+                    remediation=f'Run: chmod 700 {self.tdata_path}',
+                    d3fend_id='D3-FPE',
+                    auto_fixable=True,
                 ))
         except OSError:
             pass
@@ -189,8 +207,11 @@ class Auditor:
             report.findings.append(Finding(
                 severity='WARNING',
                 title=f'Multiple accounts detected ({count})',
-                detail='Multiple accounts share the same local key. '
-                       'Compromising one key_datas exposes all accounts.',
+                detail=f'{count} accounts found in one tdata. '
+                       'An unauthorized account may be used as a data exfiltration channel.',
+                mitre_id='T1537',
+                remediation='Verify all accounts are legitimate. Remove unauthorized accounts via TDesktop: Settings → Log Out',
+                d3fend_id='D3-AL',
             ))
 
     def _check_version(self, report: AuditReport) -> None:
@@ -201,13 +222,16 @@ class Auditor:
                 title='Legacy encryption (weak PBKDF2)',
                 detail=f'TDesktop version {self.version} uses SHA1-PBKDF2 with only 4000 iterations. '
                        f'Bruteforce speed: ~1000x faster than modern versions.',
-                mitre_id='T1110.002'
+                mitre_id='T1110.002',
+                remediation='Update Telegram Desktop to latest version (4.x+)',
+                d3fend_id='D3-DENCR',
             ))
         else:
             report.findings.append(Finding(
                 severity='INFO',
                 title='Modern encryption',
                 detail=f'TDesktop version {self.version} uses SHA512-PBKDF2 with 100k iterations.',
+                d3fend_id='D3-DENCR',
             ))
 
     def audit(self) -> AuditReport:
@@ -221,3 +245,23 @@ class Auditor:
         self._check_accounts(report)
 
         return report
+
+    @staticmethod
+    def apply_fix(finding: Finding) -> str:
+        """Apply a single auto-fixable finding. Returns description of what was done."""
+        if not finding.auto_fixable or not finding.remediation:
+            raise ValueError("Finding is not auto-fixable")
+
+        rem = finding.remediation
+        if rem.startswith('Run: chmod 600 '):
+            target = Path(rem[len('Run: chmod 600 '):])
+            old_mode = oct(target.stat().st_mode)[-3:]
+            os.chmod(target, 0o600)
+            return f'chmod 600 {target.name} ({old_mode} → 600)'
+        elif rem.startswith('Run: chmod 700 '):
+            target = Path(rem[len('Run: chmod 700 '):])
+            old_mode = oct(target.stat().st_mode)[-3:]
+            os.chmod(target, 0o700)
+            return f'chmod 700 {target.name} ({old_mode} → 700)'
+        else:
+            raise ValueError(f"Unknown remediation: {rem}")
