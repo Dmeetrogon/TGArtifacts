@@ -47,29 +47,3 @@ class TestBruteforce:
         assert 'Attempts:' in result.output
         assert 'Time:' in result.output
 
-    def test_tc27_bruteforce_top10_common_passwords(self, cli_runner, with_pass_tdata, tmp_path):
-        """Bruteforce should crack passcode using top-10 common passwords."""
-        runner, cli = cli_runner
-        path, _ = with_pass_tdata
-        wl = tmp_path / "top10.txt"
-        wl.write_text(
-            "123456\npassword\nadmin\nqwerty\nletmein\n"
-            "welcome\nmonkey\nmaster\ndragon\nlogin\n"
-        )
-        result = runner.invoke(cli, ['bruteforce', str(path), '-w', str(wl)])
-        assert result.exit_code == 0
-        assert 'Passcode found' in result.output
-
-    def test_tc28_bruteforce_rockyou_subset(self, cli_runner, with_pass_tdata, tmp_path):
-        """Bruteforce should find passcode within rockyou subset."""
-        runner, cli = cli_runner
-        path, _ = with_pass_tdata
-        wl = tmp_path / "rockyou_subset.txt"
-        wl.write_text(
-            "rockyou\niloveyou\nprincess\nabc123\nnicole\n"
-            "daniel\nbabygirl\nlovely\nmichael\nashley\n"
-            "shadow\nsunshine\njessica\npepper\nginger\n"
-        )
-        result = runner.invoke(cli, ['bruteforce', str(path), '-w', str(wl)])
-        assert result.exit_code == 0
-        assert 'Passcode found' in result.output

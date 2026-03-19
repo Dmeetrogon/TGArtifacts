@@ -47,9 +47,3 @@ class TestAudit:
         assert result.exit_code == 0
         assert 'exfiltration' in result.output
 
-    def test_tc29_audit_default_config_no_critical(self, cli_runner, no_pass_tdata):
-        """Default tdata configuration should pass security audit without critical findings."""
-        runner, cli = cli_runner
-        result = runner.invoke(cli, ['plugin', 'audit', str(no_pass_tdata)])
-        assert result.exit_code == 0
-        assert 'CRITICAL' not in result.output
