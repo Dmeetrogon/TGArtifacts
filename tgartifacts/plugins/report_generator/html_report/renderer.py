@@ -133,7 +133,7 @@ def _render_settings(settings: Dict[str, Any]) -> str:
         val = settings.get(key)
         if val is not None:
             color = "#166534" if val else "#dc2626"
-            bool_rows += f"<tr><td>{label}</td><td style='color:{color}'>{val}</td></tr>"
+            bool_rows += f"<tr><td>{escape(label)}</td><td style='color:{color}'>{escape(str(val))}</td></tr>"
 
     detail_rows = ""
     if settings.get("last_update_check") and settings["last_update_check"] > 0:
@@ -169,7 +169,7 @@ def _render_settings(settings: Dict[str, Any]) -> str:
     send_key = settings.get("send_key")
     if send_key is not None:
         sk = {0: "Enter", 1: "Ctrl+Enter"}.get(send_key, str(send_key))
-        detail_rows += f"<tr><td>Send key</td><td>{sk}</td></tr>"
+        detail_rows += f"<tr><td>Send key</td><td>{escape(str(sk))}</td></tr>"
 
     theme = settings.get("theme")
     if theme:
@@ -189,7 +189,7 @@ def _render_settings(settings: Dict[str, Any]) -> str:
         ctype = {0: "auto", 1: "HTTP proxy", 2: "TCP proxy", 3: "MTPROTO proxy"}.get(
             conn.get("type", 0), str(conn.get("type", 0))
         )
-        detail_rows += f"<tr><td>Connection type</td><td>{ctype}</td></tr>"
+        detail_rows += f"<tr><td>Connection type</td><td>{escape(str(ctype))}</td></tr>"
         if conn.get("proxy_host"):
             detail_rows += f"<tr><td>Proxy</td><td>{escape(str(conn['proxy_host']))}:{conn.get('proxy_port', 0)}</td></tr>"
 
@@ -208,7 +208,7 @@ def _render_settings(settings: Dict[str, Any]) -> str:
     return f"""
     <section>
         <h2>Decrypted Settings</h2>
-        <p>TDesktop version: <b>{version}</b></p>
+        <p>TDesktop version: <b>{escape(str(version))}</b></p>
         <table>
             {bool_rows}
             {detail_rows}

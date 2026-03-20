@@ -46,17 +46,18 @@ class TestHardener:
         titles = [f.title for f in manual]
         assert 'No passcode set' in titles
 
-    def test_apply_chmod(self, tmp_path):
+    def test_apply_chmod(self, no_pass_tdata):
         """Apply fix changes file permissions to 600."""
-        target = tmp_path / "key_datas"
-        target.write_bytes(b"test")
+        target = no_pass_tdata / "key_datas"
+        old_mode = target.stat().st_mode
         os.chmod(target, 0o644)
         finding = Finding(
             severity='CRITICAL', title='test', detail='d',
             remediation=f'Run: chmod 600 {target}',
             auto_fixable=True,
         )
-        hardener = Hardener.__new__(Hardener)
+        hardener = Hardener(no_pass_tdata)
         desc = hardener.apply(finding)
         assert '600' in desc
         assert oct(target.stat().st_mode)[-3:] == '600'
+        os.chmod(target, old_mode)

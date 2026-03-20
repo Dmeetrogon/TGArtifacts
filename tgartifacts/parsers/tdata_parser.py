@@ -180,6 +180,8 @@ class TDataParser:
             keys_count_bytes = stream.read(4)
             if len(keys_count_bytes) == 4:
                 keys_count = int.from_bytes(keys_count_bytes, 'big', signed=True)
+                if keys_count < 0 or keys_count > 20:
+                    keys_count = 0
                 for _ in range(keys_count):
                     dc_id_bytes = stream.read(4)
                     if len(dc_id_bytes) != 4:
@@ -193,6 +195,8 @@ class TDataParser:
             destroy_count_bytes = stream.read(4)
             if len(destroy_count_bytes) == 4:
                 destroy_count = int.from_bytes(destroy_count_bytes, 'big', signed=True)
+                if destroy_count < 0 or destroy_count > 20:
+                    destroy_count = 0
                 for _ in range(destroy_count):
                     dc_id_bytes = stream.read(4)
                     if len(dc_id_bytes) != 4:
@@ -433,6 +437,8 @@ class TDataParser:
             elif abs(index) > count:
                 calls = 1
                 index -= count if index > 0 else -count
+            if count < 0 or count > 100:
+                count = 0
             proxies = []
             for _ in range(count):
                 proxy_type = sub.read_int32()
@@ -442,7 +448,7 @@ class TDataParser:
                 password = sub.read_utf16() or ''
                 proxies.append({
                     'type': proxy_type, 'host': host, 'port': port,
-                    'user': user, 'password': password,
+                    'user': user, 'password': '***' if password else '',
                 })
             result['proxies'] = proxies
             result['selected_index'] = abs(index)
@@ -456,7 +462,7 @@ class TDataParser:
             password = sub.read_utf16() or ''
             result['proxy'] = {
                 'type': proxy_type, 'host': host, 'port': port,
-                'user': user, 'password': password,
+                'user': user, 'password': '***' if password else '',
             }
 
         parent_stream.seek(parent_stream.tell() + sub.offset)
@@ -481,6 +487,8 @@ class TDataParser:
             minus_version = dc_reader.read_int32()
             version = -minus_version if minus_version < 0 else 0
             count = dc_reader.read_int32() if version > 0 else minus_version
+            if count < 0 or count > 200:
+                count = 0
             dc_options = []
             for _ in range(count):
                 try:

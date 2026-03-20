@@ -29,4 +29,4 @@ class Hardener:
         return fixable, manual
 
     def apply(self, finding: Finding) -> str:
-        return Auditor.apply_fix(finding)
+        return self.auditor.apply_fix(finding)

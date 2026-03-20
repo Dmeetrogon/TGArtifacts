@@ -8,7 +8,7 @@ def _compute_auth_key_id(auth_key: bytes) -> str:
     return hashlib.sha1(auth_key).digest()[-8:].hex()
 
 
-def _display_settings(settings: Dict[str, Any]) -> None:
+def _display_settings(settings: Dict[str, Any], show_sensitive: bool = False) -> None:
     if not settings:
         click.echo("  Settings: could not decrypt")
         return
@@ -51,7 +51,12 @@ def _display_settings(settings: Dict[str, Any]) -> None:
         click.echo(f"  Power saving: {settings['power_saving']}")
 
     if "phone_number" in settings:
-        click.secho(f"  Phone number: {settings['phone_number']}", fg='yellow')
+        phone = str(settings['phone_number'])
+        if show_sensitive:
+            click.secho(f"  Phone number: {phone}", fg='yellow')
+        else:
+            masked_phone = phone[:4] + '*' * (len(phone) - 6) + phone[-2:] if len(phone) > 6 else '***'
+            click.secho(f"  Phone number: {masked_phone}", fg='yellow')
 
     if "download_path" in settings:
         click.echo(f"  Download path: {settings['download_path']}")
@@ -102,8 +107,9 @@ def _display_settings(settings: Dict[str, Any]) -> None:
 @click.command()
 @click.argument('tdata_path', type=click.Path(exists=True))
 @click.option('--passcode', '-p', help='Passcode for encrypted data')
-@click.option('--show-keys', '-k', is_flag=True, help='Show full auth keys')
-def command(tdata_path: str, passcode: Optional[str], show_keys: bool):
+@click.option('--show-keys', '-k', is_flag=True, help='Show auth key fragments')
+@click.option('--show-sensitive', '-s', is_flag=True, help='Show sensitive data unmasked (phone, full auth keys)')
+def command(tdata_path: str, passcode: Optional[str], show_keys: bool, show_sensitive: bool):
     """Show information about tdata directory."""
     from ...parsers.tdata_parser import TDataParser
 
@@ -114,7 +120,7 @@ def command(tdata_path: str, passcode: Optional[str], show_keys: bool):
         click.secho(f"TDesktop version: {parser.tdesktop_version}\n", fg='cyan', bold=True)
 
         settings = parser.get_settings_info()
-        _display_settings(settings)
+        _display_settings(settings, show_sensitive=show_sensitive)
 
         accounts_info = parser.get_all_accounts_info()
         click.echo(f"Found {len(accounts_info)} account(s):\n")
@@ -139,8 +145,11 @@ def command(tdata_path: str, passcode: Optional[str], show_keys: bool):
                     click.echo(f"      DC {dc_id}: auth_key_id = {auth_key_id}")
                     if show_keys:
                         key_hex = auth_key.hex()
-                        for i in range(0, len(key_hex), 64):
-                            click.echo(f"        {key_hex[i:i+64]}")
+                        if show_sensitive:
+                            for i in range(0, len(key_hex), 64):
+                                click.echo(f"        {key_hex[i:i+64]}")
+                        else:
+                            click.echo(f"        {key_hex[:16]}...{key_hex[-16:]}")
 
             keys_to_destroy = info_data.get('keys_to_destroy', {})
             if keys_to_destroy:

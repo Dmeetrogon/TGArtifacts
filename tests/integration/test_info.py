@@ -31,8 +31,8 @@ class TestInfoNoPass:
         result = runner.invoke(cli, ['info', str(no_pass_tdata), '--show-keys'])
         assert result.exit_code == 0
         lines = result.output.split('\n')
-        hex_lines = [l.strip() for l in lines if len(l.strip()) == 64]
-        assert len(hex_lines) > 0
+        key_lines = [l.strip() for l in lines if '...' in l and len(l.strip()) > 30]
+        assert len(key_lines) > 0
 
 
 class TestInfoWithPass:

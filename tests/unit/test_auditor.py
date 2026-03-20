@@ -125,22 +125,25 @@ class TestAuditor:
             if f.severity != 'INFO' or f.remediation:
                 assert f.d3fend_id is not None, f"Finding '{f.title}' missing d3fend_id"
 
-    def test_apply_fix_chmod(self, tmp_path):
+    def test_apply_fix_chmod(self, no_pass_tdata):
         """apply_fix changes file permissions."""
-        target = tmp_path / "key_datas"
-        target.write_bytes(b"test")
+        target = no_pass_tdata / "key_datas"
+        old_mode = target.stat().st_mode
         os.chmod(target, 0o644)
         finding = Finding(
             severity='CRITICAL', title='test', detail='d',
             remediation=f'Run: chmod 600 {target}',
             auto_fixable=True,
         )
-        desc = Auditor.apply_fix(finding)
+        auditor = Auditor(no_pass_tdata)
+        desc = auditor.apply_fix(finding)
         assert '644 → 600' in desc
         assert oct(target.stat().st_mode)[-3:] == '600'
+        os.chmod(target, old_mode)
 
-    def test_apply_fix_rejects_non_fixable(self):
+    def test_apply_fix_rejects_non_fixable(self, no_pass_tdata):
         """apply_fix raises ValueError for non-auto-fixable findings."""
         finding = Finding(severity='INFO', title='ok', detail='d', auto_fixable=False)
+        auditor = Auditor(no_pass_tdata)
         with pytest.raises(ValueError, match="not auto-fixable"):
-            Auditor.apply_fix(finding)
+            auditor.apply_fix(finding)

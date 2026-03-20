@@ -49,7 +49,7 @@ class QtDataStreamReader:
             return None
         if length == 0:
             return ''
-        return self.read_bytes(length).decode('utf-16-be')
+        return self.read_bytes(length).decode('utf-16-be', errors='replace')
 
     def remaining(self) -> int:
         return len(self.data) - self.offset

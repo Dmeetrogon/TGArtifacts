@@ -55,9 +55,14 @@ Searches native, Snap, and Flatpak locations. Use `--path` / `-p` to add custom 
 ```bash
 tgartifacts info /path/to/tdata
 tgartifacts info /path/to/tdata -p "passcode" -k
+tgartifacts info /path/to/tdata -k -s
 ```
 
-Displays TDesktop version, decrypted settings (auto start, auto update, phone number, download path, language, theme, window position, proxy/connection type, DC options, chat/megagroup limits), account info (User ID, DC ID, auth key IDs, passcode status), cached TDEF file count. Use `--show-keys` / `-k` to print full 512-char hex auth keys.
+Displays TDesktop version, decrypted settings (auto start, auto update, phone number, download path, language, theme, window position, proxy/connection type, DC options, chat/megagroup limits), account info (User ID, DC ID, auth key IDs, passcode status), cached TDEF file count.
+
+Flags:
+- `--show-keys` / `-k` — show auth key fragments (first/last 16 hex chars)
+- `--show-sensitive` / `-s` — unmask sensitive data: full phone number, full auth keys (with `-k`). Without this flag, phone numbers are masked (`1858****35`) and auth keys are truncated.
 
 ### `audit` — Security audit
 

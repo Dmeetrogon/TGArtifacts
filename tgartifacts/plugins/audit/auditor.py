@@ -395,20 +395,23 @@ class Auditor:
 
         return report
 
-    @staticmethod
-    def apply_fix(finding: Finding) -> str:
+    def apply_fix(self, finding: Finding) -> str:
         """Apply a single auto-fixable finding. Returns description of what was done."""
         if not finding.auto_fixable or not finding.remediation:
             raise ValueError("Finding is not auto-fixable")
 
         rem = finding.remediation
         if rem.startswith('Run: chmod 600 '):
-            target = Path(rem[len('Run: chmod 600 '):])
+            target = Path(rem[len('Run: chmod 600 '):]).resolve()
+            if not target.is_relative_to(self.tdata_path.resolve()):
+                raise ValueError(f"Target path outside tdata: {target}")
             old_mode = oct(target.stat().st_mode)[-3:]
             os.chmod(target, 0o600)
             return f'chmod 600 {target.name} ({old_mode} → 600)'
         elif rem.startswith('Run: chmod 700 '):
-            target = Path(rem[len('Run: chmod 700 '):])
+            target = Path(rem[len('Run: chmod 700 '):]).resolve()
+            if not target.is_relative_to(self.tdata_path.resolve()):
+                raise ValueError(f"Target path outside tdata: {target}")
             old_mode = oct(target.stat().st_mode)[-3:]
             os.chmod(target, 0o700)
             return f'chmod 700 {target.name} ({old_mode} → 700)'

@@ -54,6 +54,8 @@ class Decryptor:
         if not parts:
             return None
         max_end = max(p[0] + p[1] for p in parts)
+        if max_end > 2 * 1024 * 1024 * 1024:
+            return None
         assembled = bytearray(max_end)
         for offset, size, part_data in parts:
             assembled[offset:offset+len(part_data)] = part_data
@@ -110,7 +112,7 @@ class Decryptor:
 
     def decrypt_media_cache(self, cache_path: Path, output_dir: Path) -> Dict[str, int]:
         output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         if not cache_path.exists():
             raise FileNotFoundError(f"Directory not found: {cache_path}")
         version_dirs = [d for d in cache_path.iterdir() if d.is_dir()]
@@ -143,7 +145,8 @@ class Decryptor:
                             out_file.write(final_data)
                         stats['success'] += 1
                     except Exception as e:
-                        print(f"Failed to decrypt {file_path}: {e}")
+                        import logging
+                        logging.warning("Failed to decrypt %s: %s", file_path.name, e)
                         stats['failed'] += 1
         return stats
 

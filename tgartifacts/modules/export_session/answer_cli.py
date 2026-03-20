@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import struct
 import base64
 import click
@@ -54,12 +55,14 @@ def command(tdata_path: str, output_file: str, passcode: Optional[str], output_f
                 'auth_keys': a['auth_keys_hex'],
                 'auth_key_ids': a['auth_key_ids']
             } for a in export_data]
-            with open(output_file, 'w') as f:
+            fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'w') as f:
                 json.dump(json_data, f, indent=2)
             click.secho(f"Session data exported to: {output_file}", fg='green')
 
         elif output_format == 'telethon':
-            with open(output_file, 'w') as f:
+            fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'w') as f:
                 for account in export_data:
                     dc_id = account['dc_id']
                     auth_keys = account.get('auth_keys', {})
@@ -70,7 +73,7 @@ def command(tdata_path: str, output_file: str, passcode: Optional[str], output_f
                         f.write(f"# DC ID: {dc_id}\n")
                         f.write(f"{string_session}\n\n")
                         click.echo(f"Account {account['user_id']}:")
-                        click.secho(f"  StringSession: {string_session[:50]}...", fg='cyan')
+                        click.secho(f"  StringSession: {string_session[:8]}...{string_session[-8:]}", fg='cyan')
                     else:
                         click.secho(f"Account {account['user_id']}: No auth key for DC {dc_id}", fg='yellow')
             click.secho(f"\nTelethon sessions exported to: {output_file}", fg='green')
