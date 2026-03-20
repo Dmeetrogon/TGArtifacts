@@ -304,6 +304,36 @@ class Auditor:
                 d3fend_id='D3-DENCR',
             ))
 
+    def _check_cache_size(self, report: AuditReport) -> None:
+        total = 0
+        for cache_dir in ('user_data/cache', 'user_data/media_cache'):
+            path = self.tdata_path / cache_dir
+            if path.is_dir():
+                for f in path.rglob('*'):
+                    if f.is_file():
+                        total += f.stat().st_size
+
+        gb = total / (1024 ** 3)
+        if gb >= 15:
+            severity = 'CRITICAL'
+        elif gb >= 5:
+            severity = 'WARNING'
+        else:
+            severity = 'INFO'
+
+        if not report.passcode_set and severity != 'CRITICAL':
+            severity = 'CRITICAL' if severity == 'WARNING' else 'WARNING'
+
+        report.findings.append(Finding(
+            severity=severity,
+            title=f'Cache size: {gb:.1f} GB',
+            detail=f'{gb:.1f} GB of cached data (media, files, photos) stored locally. '
+                   f'Large cache increases data exposure risk on device compromise.',
+            mitre_id='T1005',
+            remediation='Clear cache in TDesktop: Settings → Advanced → Manage local storage',
+            d3fend_id='D3-FPE',
+        ))
+
     def _check_accounts(self, report: AuditReport) -> None:
         count = 0
         for item in self.tdata_path.iterdir():
@@ -358,6 +388,7 @@ class Auditor:
         self._check_permissions(report)
         self._check_tdata_parent_permissions(report)
         self._check_accounts(report)
+        self._check_cache_size(report)
         self._check_proxy(report)
         self._check_auto_start(report)
         self._check_phone_number_stored(report)
