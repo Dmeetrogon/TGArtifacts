@@ -7,15 +7,20 @@ CLI forensic tool for Telegram Desktop artifact analysis. Extract and analyze da
 ## Features
 
 - Auto-detect `tdata` directories (native, Snap, Flatpak)
-- Parse `tdata` structure with multi-account support
+- Parse `tdata` structure with multi-account support (modern + legacy versions)
+- Decrypt and parse TDesktop settings (auto-lock, auto-update, proxy, phone, theme, DC options)
 - Extract account information (User ID, DC ID, auth keys)
 - Export sessions to JSON or Telethon StringSession format
 - Decrypt and extract cached media files (TDEF → images, videos, documents)
 - Validate extracted sessions via Telegram API
-- Security audit with MITRE ATT&CK / D3FEND mapping
+- Security audit with MITRE ATT&CK / D3FEND mapping (12 checks)
+- Hardening with interactive auto-fix for fixable issues
+- Forensic timeline analysis with anomaly detection (bulk access, timestomping, key rotation)
 - Bruteforce passcode via dictionary attack (multi-threaded)
+- HTML + JSON forensic report generation
+- SHA-256/MD5 hash integrity reports
 - Modular architecture with auto-discovery
-- Plugin system for extensions (hash-report, report-generator built-in)
+- Plugin system for extensions
 
 ## Installation
 
@@ -58,19 +63,11 @@ tgartifacts info /path/to/tdata -p "passcode" -k
 tgartifacts info /path/to/tdata -k -s
 ```
 
-Displays TDesktop version, decrypted settings (auto start, auto update, phone number, download path, language, theme, window position, proxy/connection type, DC options, chat/megagroup limits), account info (User ID, DC ID, auth key IDs, passcode status), cached TDEF file count.
+Displays TDesktop version, decrypted settings (auto start, auto update, auto lock, phone number, download path, language, theme, window position, proxy/connection type, DC options, chat/megagroup limits), account info (User ID, DC ID, auth key IDs, passcode status), cached TDEF file count.
 
 Flags:
 - `--show-keys` / `-k` — show auth key fragments (first/last 16 hex chars)
 - `--show-sensitive` / `-s` — unmask sensitive data: full phone number, full auth keys (with `-k`). Without this flag, phone numbers are masked (`1858****35`) and auth keys are truncated.
-
-### `audit` — Security audit
-
-```bash
-tgartifacts audit /path/to/tdata
-```
-
-Checks: passcode presence, passcode strength (top-50 dictionary), file permissions (world/group-readable), encryption version (legacy vs modern PBKDF2), multi-account exposure. Each finding mapped to MITRE ATT&CK / D3FEND IDs.
 
 ### `export-session` — Export session data
 
@@ -98,7 +95,7 @@ tgartifacts bruteforce /path/to/tdata -w wordlist.txt
 tgartifacts bruteforce /path/to/tdata -w wordlist.txt -t 4
 ```
 
-Dictionary attack against passcode-protected tdata. Speed: ~3 passwords/s per thread (limited by PBKDF2 100k iterations on modern versions). Use `--threads` / `-t` to parallelize.
+Dictionary attack against passcode-protected tdata. Found passcode is displayed in stdout. Speed: ~3 passwords/s per thread (limited by PBKDF2 100k iterations on modern versions). Use `--threads` / `-t` to parallelize.
 
 ### `validate-session` — Check session via Telegram API
 
@@ -119,26 +116,63 @@ tgartifacts list-plugins
 ### `plugin` — Run a plugin
 
 ```bash
+tgartifacts plugin audit /path/to/tdata
+tgartifacts plugin harden /path/to/tdata
+tgartifacts plugin timeline /path/to/tdata
 tgartifacts plugin hash-report /path/to/tdata
 tgartifacts plugin report-generator /path/to/tdata -o ./output -p "passcode"
-tgartifacts plugin my-analyzer /path/to/tdata --plugins-dir ~/my-plugins/
 ```
 
 Built-in plugins:
-- **hash-report** — SHA-256 + MD5 hashes for all files, grouped by detected type
-- **report-generator** — Full forensic report (cache extraction, session export, validation, hashing) → HTML + JSON
+
+| Plugin | Description |
+|--------|-------------|
+| **audit** | Security audit with MITRE ATT&CK / D3FEND mapping |
+| **harden** | Interactive auto-fix for fixable audit findings (permissions) |
+| **timeline** | Forensic timeline analysis with anomaly detection |
+| **hash-report** | SHA-256 + MD5 hashes for all files, grouped by detected type |
+| **report-generator** | Full forensic report (cache, sessions, hashing, timeline) → HTML + JSON |
+
+### Audit checks
+
+| Check | Severity | MITRE ATT&CK | D3FEND |
+|-------|----------|---------------|--------|
+| No passcode set | CRITICAL | T1555 | D3-MFA |
+| Weak passcode (top-50 dictionary) | CRITICAL | T1110.002 | D3-MFA |
+| Legacy encryption (weak PBKDF2) | CRITICAL | T1110.002 | D3-DENCR |
+| Outdated TDesktop version | CRITICAL | T1212 | D3-SU |
+| key_datas world-readable | CRITICAL | T1005 | D3-FPE |
+| key_datas group-readable | WARNING | T1005 | D3-FPE |
+| tdata directory world-accessible | WARNING | T1005 | D3-FPE |
+| Auto-lock not configured | WARNING | T1078.001 | D3-AL |
+| Auto-update disabled | WARNING | T1203 | D3-SU |
+| Multiple accounts detected | WARNING | T1537 | D3-AL |
+| Cache size (>5 GB / >15 GB) | WARNING/CRITICAL | T1005 | D3-FPE |
+| Proxy configured | INFO | T1090 | D3-NTA |
+| Auto-start enabled | INFO | T1547.001 | D3-PSA |
+| Phone number stored locally | INFO | T1005 | D3-DENCR |
+
+### Timeline anomaly detection
+
+| Anomaly | Severity | MITRE ATT&CK |
+|---------|----------|---------------|
+| Bulk file access (>10 same second) | WARNING | T1005 |
+| Mass file access (>50 same second) | CRITICAL | T1005 |
+| Future timestamps | WARNING | T1070.006 |
+| Round timestamps (timestomping) | WARNING | T1070.006 |
+| Key rotation detected (keys_to_destroy) | INFO | T1550.004 |
 
 ## Writing a plugin
 
-Create a directory under `tgartifacts/plugins/` (or any custom `--plugins-dir`):
-
 ```
 my_plugin/
-├── __init__.py      # plugin class
-└── logic.py         # business logic (keep __init__.py minimal)
+├── __init__.py      # plugin metadata + delegation
+└── answer_cli.py    # CLI output logic
 ```
 
 ```python
+# __init__.py
+from typing import Any, Dict
 from tgartifacts.plugins import BasePlugin, PluginContext
 
 class MyPlugin(BasePlugin):
@@ -146,14 +180,23 @@ class MyPlugin(BasePlugin):
     description = "My custom analyzer"
     version = "0.1.0"
 
-    def run(self, context: PluginContext):
-        # context.tdata_path, context.passcode, context.output_dir
-        return {"result": "done"}
+    def run(self, context: PluginContext) -> Dict[str, Any]:
+        from .answer_cli import run
+        return run(context)
+```
+
+```python
+# answer_cli.py
+import click
+from typing import Any, Dict
+from tgartifacts.plugins import PluginContext
+
+def run(context: PluginContext) -> Dict[str, Any]:
+    click.echo(f"Running on {context.tdata_path}")
+    return {"result": "done"}
 ```
 
 ## Writing a module
-
-Create a package in `tgartifacts/modules/`:
 
 ```
 tgartifacts/modules/my_module/
@@ -193,12 +236,14 @@ Modules are auto-discovered and registered at startup.
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/                      # all 102 tests
+pytest tests/                      # all 162 tests
 pytest tests/unit/                 # unit tests only
 pytest tests/integration/          # integration tests only
 pytest -m "not slow"               # skip slow bruteforce tests
 pytest -m live                     # only real Telegram API tests
 ```
+
+Test reports are generated at `reports/report.html` (pytest-html).
 
 ## tdata locations
 
@@ -219,9 +264,7 @@ tgartifacts/
 ├── modules/                          # Auto-discovered CLI modules
 │   ├── base.py                       # BaseModule ABC
 │   ├── __init__.py                   # discover_modules(), register_modules()
-│   ├── info/                         # Account info display
-│   ├── audit/                        # Security audit (MITRE ATT&CK)
-│   │   └── auditor.py               # Auditor, Finding, AuditReport
+│   ├── info/                         # Account info + settings display
 │   ├── bruteforce/                   # Passcode dictionary attack
 │   │   └── bruteforcer.py            # Bruteforcer, BruteforceResult
 │   ├── export_session/               # Session export (JSON / Telethon)
@@ -238,18 +281,27 @@ tgartifacts/
 │   ├── tdata_parser.py               # TDataParser (accounts, cache, MTP auth)
 │   ├── tdf_reader.py                 # read_tdf() — TDF$ magic, MD5 validation
 │   └── qt_stream.py                  # QtDataStreamReader
-├── plugins/
+├── plugins/                          # Plugin system (each: __init__.py + answer_cli.py)
 │   ├── base.py                       # BasePlugin, PluginContext
-│   ├── manager.py                    # PluginManager (flat .py + subdirectory loading)
-│   ├── hash_report/                  # SHA-256/MD5 hash report plugin
-│   │   ├── __init__.py               # HashReportPlugin (minimal)
+│   ├── manager.py                    # PluginManager (discovery + loading)
+│   ├── audit/                        # Security audit (MITRE ATT&CK / D3FEND)
+│   │   ├── auditor.py                # Auditor, Finding, AuditReport
+│   │   └── answer_cli.py             # CLI output
+│   ├── harden/                       # Interactive hardening (auto-fix)
+│   │   ├── hardener.py               # Hardener, HardenAction, HardenResult
+│   │   └── answer_cli.py             # CLI output
+│   ├── timeline/                     # Forensic timeline + anomaly detection
+│   │   ├── analyzer.py               # TimelineAnalyzer, TimelineEvent, TimelineAnomaly
+│   │   └── answer_cli.py             # CLI output + activity tree
+│   ├── hash_report/                  # SHA-256/MD5 hash report
 │   │   ├── hasher.py                 # compute_hashes(), detect_type()
-│   │   └── report.py                 # collect_entries(), write_report()
-│   └── report_generator/             # Full forensic report plugin
-│       ├── __init__.py               # ReportGeneratorPlugin
+│   │   ├── report.py                 # collect_entries(), write_report()
+│   │   └── answer_cli.py             # CLI output
+│   └── report_generator/             # Full forensic report (HTML + JSON)
 │       ├── collector.py              # collect_report_data()
 │       ├── html_report/renderer.py   # HTML output
-│       └── json_report/renderer.py   # JSON output
+│       ├── json_report/renderer.py   # JSON output
+│       └── answer_cli.py             # CLI output
 ├── models/
 │   ├── MTPAuthorization.py           # MTPAuthorization dataclass
 │   └── account.py                    # Account dataclass
