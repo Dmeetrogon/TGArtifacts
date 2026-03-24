@@ -127,3 +127,59 @@ def output_dir(tmp_path):
     out = tmp_path / "output"
     out.mkdir()
     return out
+
+
+@pytest.fixture
+def corrupted_tdata_no_keys(tmp_path):
+    """tdata directory without key_datas file."""
+    tdata = tmp_path / "tdata_no_keys"
+    tdata.mkdir()
+    (tdata / "settingss").write_bytes(b"\x00" * 64)
+    return tdata
+
+
+@pytest.fixture
+def corrupted_tdata_no_settings(tmp_path, no_pass_tdata):
+    """tdata directory with valid key_datas but no settingss file."""
+    import shutil
+    tdata = tmp_path / "tdata_no_settings"
+    shutil.copytree(no_pass_tdata, tdata)
+    settings = tdata / "settingss"
+    if settings.exists():
+        settings.unlink()
+    settings_s = tdata / "settingss0"
+    if settings_s.exists():
+        settings_s.unlink()
+    settings_1 = tdata / "settingss1"
+    if settings_1.exists():
+        settings_1.unlink()
+    return tdata
+
+
+@pytest.fixture
+def corrupted_tdata_bad_key_datas(tmp_path):
+    """tdata directory with garbage key_datas."""
+    tdata = tmp_path / "tdata_bad_keys"
+    tdata.mkdir()
+    (tdata / "key_datas").write_bytes(b"TDF$\x00\x00\x00\x01" + b"\xff" * 200)
+    return tdata
+
+
+@pytest.fixture
+def corrupted_tdata_empty(tmp_path):
+    """Completely empty tdata directory."""
+    tdata = tmp_path / "tdata_empty"
+    tdata.mkdir()
+    return tdata
+
+
+@pytest.fixture
+def corrupted_tdata_truncated_key(tmp_path, no_pass_tdata):
+    """tdata with truncated key_datas (partial file)."""
+    import shutil
+    tdata = tmp_path / "tdata_truncated"
+    shutil.copytree(no_pass_tdata, tdata)
+    key_datas = tdata / "key_datas"
+    original = key_datas.read_bytes()
+    key_datas.write_bytes(original[:32])
+    return tdata
