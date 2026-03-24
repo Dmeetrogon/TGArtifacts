@@ -115,7 +115,7 @@ class TestAuditor:
         assert report.version > 0
         version_findings = [f for f in report.findings if 'encryption' in f.title.lower()]
         assert len(version_findings) >= 1
-        assert version_findings[0].d3fend_id == 'D3-DENCR'
+        assert version_findings[0].d3fend_id == 'D3-CH'
 
     def test_all_findings_have_d3fend(self, no_pass_tdata):
         """Every finding from audit has a D3FEND mapping."""

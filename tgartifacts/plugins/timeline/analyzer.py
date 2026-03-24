@@ -33,8 +33,11 @@ class TimelineReport:
     total_files: int
 
 
-BULK_THRESHOLD_WARNING = 10
-BULK_THRESHOLD_CRITICAL = 50
+BULK_RULES = [
+    {'count': 1000, 'window': 5, 'severity': 'CRITICAL', 'title': 'Mass file access detected'},
+    {'count': 100, 'window': 2, 'severity': 'WARNING', 'title': 'Bulk file access detected'},
+    {'count': 30, 'window': 1, 'severity': 'INFO', 'title': 'Elevated file access detected'},
+]
 
 
 class TimelineAnalyzer:
@@ -68,32 +71,40 @@ class TimelineAnalyzer:
         return anomalies
 
     def _detect_bulk_access(self, events: List[TimelineEvent]) -> List[TimelineAnomaly]:
-        by_second: Dict[int, List[TimelineEvent]] = {}
-        for e in events:
-            key = int(e.timestamp.timestamp())
-            by_second.setdefault(key, []).append(e)
+        if not events:
+            return []
 
         anomalies = []
-        for ts, group in by_second.items():
-            count = len(group)
-            if count >= BULK_THRESHOLD_CRITICAL:
-                anomalies.append(TimelineAnomaly(
-                    severity='CRITICAL',
-                    title='Mass file access detected',
-                    detail=f'{count} files modified within 1 second at '
-                           f'{group[0].timestamp:%Y-%m-%d %H:%M:%S} — possible bulk exfiltration',
-                    mitre_id='T1005',
-                    events=group,
-                ))
-            elif count >= BULK_THRESHOLD_WARNING:
-                anomalies.append(TimelineAnomaly(
-                    severity='WARNING',
-                    title='Bulk file access detected',
-                    detail=f'{count} files modified within 1 second at '
-                           f'{group[0].timestamp:%Y-%m-%d %H:%M:%S} — possible mass copy',
-                    mitre_id='T1005',
-                    events=group,
-                ))
+        reported_ranges = set()
+
+        for rule in BULK_RULES:
+            threshold = rule['count']
+            window = rule['window']
+            severity = rule['severity']
+            title = rule['title']
+
+            timestamps = [e.timestamp.timestamp() for e in events]
+
+            left = 0
+            for right in range(len(timestamps)):
+                while timestamps[right] - timestamps[left] > window:
+                    left += 1
+
+                count = right - left + 1
+                if count >= threshold:
+                    range_key = (int(timestamps[left]), severity)
+                    if range_key not in reported_ranges:
+                        reported_ranges.add(range_key)
+                        group = events[left:right + 1]
+                        anomalies.append(TimelineAnomaly(
+                            severity=severity,
+                            title=title,
+                            detail=f'{count} files modified within {window}s at '
+                                   f'{group[0].timestamp:%Y-%m-%d %H:%M:%S} — possible bulk exfiltration',
+                            mitre_id='T1005',
+                            events=group,
+                        ))
+
         return anomalies
 
     def _detect_timestamp_anomalies(self, events: List[TimelineEvent]) -> List[TimelineAnomaly]:

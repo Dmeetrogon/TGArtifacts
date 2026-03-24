@@ -96,7 +96,6 @@ class Auditor:
             severity='INFO',
             title='Passcode is set',
             detail='tdata is protected by a local passcode.',
-            mitre_id='D3-MFA',
             d3fend_id='D3-MFA',
         ))
 
@@ -145,7 +144,7 @@ class Auditor:
                            f'Any local user can read the encrypted key material.',
                     mitre_id='T1005',
                     remediation=f'Run: chmod 600 {key_datas}',
-                    d3fend_id='D3-FPE',
+                    d3fend_id='D3-LFP',
                     auto_fixable=True,
                 ))
             elif group_readable:
@@ -157,7 +156,7 @@ class Auditor:
                            f'Other users in the same group can read key material.',
                     mitre_id='T1005',
                     remediation=f'Run: chmod 600 {key_datas}',
-                    d3fend_id='D3-FPE',
+                    d3fend_id='D3-LFP',
                     auto_fixable=True,
                 ))
             else:
@@ -165,7 +164,7 @@ class Auditor:
                     severity='INFO',
                     title='File permissions OK',
                     detail=f'key_datas permissions: {oct(mode)[-3:]}',
-                    d3fend_id='D3-FPE',
+                    d3fend_id='D3-LFP',
                 ))
         except OSError:
             pass
@@ -185,7 +184,7 @@ class Auditor:
                            f'Other users can traverse the tdata directory.',
                     mitre_id='T1005',
                     remediation=f'Run: chmod 700 {self.tdata_path}',
-                    d3fend_id='D3-FPE',
+                    d3fend_id='D3-LFP',
                     auto_fixable=True,
                 ))
         except OSError:
@@ -215,7 +214,7 @@ class Auditor:
                 title='Auto-lock not configured',
                 detail='No auto-lock timeout set. Physical access to the device '
                        'grants full access to the Telegram session without re-authentication.',
-                mitre_id='T1078.001',
+                mitre_id='T1078',
                 remediation='Enable auto-lock in TDesktop: Settings → Privacy and Security → Local passcode → Auto-lock',
                 d3fend_id='D3-AL',
             ))
@@ -244,7 +243,7 @@ class Auditor:
                 title=f'Outdated TDesktop version ({ver})',
                 detail=f'TDesktop version {ver} is significantly outdated. '
                        'Old versions contain known vulnerabilities (CVEs) and use weaker cryptographic primitives.',
-                mitre_id='T1212',
+                mitre_id='T1203',
                 remediation='Update Telegram Desktop to the latest version from https://desktop.telegram.org',
                 d3fend_id='D3-SU',
             ))
@@ -301,7 +300,7 @@ class Auditor:
                 detail=f'Phone number ({phone}) is stored in the settings file. '
                        'Compromise of tdata exposes this PII.',
                 mitre_id='T1005',
-                d3fend_id='D3-DENCR',
+                d3fend_id='D3-LFP',
             ))
 
     def _check_cache_size(self, report: AuditReport) -> None:
@@ -331,7 +330,7 @@ class Auditor:
                    f'Large cache increases data exposure risk on device compromise.',
             mitre_id='T1005',
             remediation='Clear cache in TDesktop: Settings → Advanced → Manage local storage',
-            d3fend_id='D3-FPE',
+            d3fend_id='D3-LFP',
         ))
 
     def _check_accounts(self, report: AuditReport) -> None:
@@ -366,14 +365,14 @@ class Auditor:
                        f'Bruteforce speed: ~1000x faster than modern versions.',
                 mitre_id='T1110.002',
                 remediation='Update Telegram Desktop to latest version (4.x+)',
-                d3fend_id='D3-DENCR',
+                d3fend_id='D3-CH',
             ))
         else:
             report.findings.append(Finding(
                 severity='INFO',
                 title='Modern encryption',
                 detail=f'TDesktop version {self.version} uses SHA512-PBKDF2 with 100k iterations.',
-                d3fend_id='D3-DENCR',
+                d3fend_id='D3-CH',
             ))
 
     def audit(self) -> AuditReport:

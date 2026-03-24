@@ -8,7 +8,7 @@ from pathlib import Path
 
 from tgartifacts.plugins.timeline.analyzer import (
     TimelineAnalyzer, TimelineEvent, TimelineAnomaly, TimelineReport,
-    BULK_THRESHOLD_WARNING,
+    BULK_RULES,
 )
 
 
@@ -43,15 +43,43 @@ class TestTimelineAnalyzer:
         timestamps = [e.timestamp for e in events]
         assert timestamps == sorted(timestamps)
 
-    def test_detect_bulk_access(self, tmp_path):
-        """15 files with same mtime trigger bulk access anomaly (T1005)."""
-        for i in range(15):
+    def test_detect_bulk_access_info(self, tmp_path):
+        """30 files with same mtime trigger INFO bulk access anomaly (T1005)."""
+        for i in range(35):
             (tmp_path / f"file_{i}").write_bytes(b"x")
         analyzer = TimelineAnalyzer(tmp_path)
         events = analyzer.collect_events()
         anomalies = analyzer._detect_bulk_access(events)
         assert len(anomalies) >= 1
-        assert anomalies[0].mitre_id == 'T1005'
+        info = [a for a in anomalies if a.severity == 'INFO']
+        assert len(info) >= 1
+        assert info[0].mitre_id == 'T1005'
+
+    def test_detect_bulk_access_warning(self, tmp_path):
+        """100 files within 2s trigger WARNING bulk access anomaly."""
+        base = time.time()
+        for i in range(110):
+            f = tmp_path / f"file_{i}"
+            f.write_bytes(b"x")
+            os.utime(f, (base, base + (i * 0.01)))
+        analyzer = TimelineAnalyzer(tmp_path)
+        events = analyzer.collect_events()
+        anomalies = analyzer._detect_bulk_access(events)
+        warning = [a for a in anomalies if a.severity == 'WARNING']
+        assert len(warning) >= 1
+
+    def test_detect_bulk_access_critical(self, tmp_path):
+        """1000 files within 5s trigger CRITICAL bulk access anomaly."""
+        base = time.time()
+        for i in range(1010):
+            f = tmp_path / f"file_{i}"
+            f.write_bytes(b"x")
+            os.utime(f, (base, base + (i * 0.004)))
+        analyzer = TimelineAnalyzer(tmp_path)
+        events = analyzer.collect_events()
+        anomalies = analyzer._detect_bulk_access(events)
+        critical = [a for a in anomalies if a.severity == 'CRITICAL']
+        assert len(critical) >= 1
 
     def test_detect_future_timestamps(self, tmp_path):
         """File with future mtime triggers CRITICAL timestomping anomaly (T1070.006)."""
