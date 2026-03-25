@@ -244,7 +244,7 @@ Modules are auto-discovered and registered at startup.
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/                      # all 183 tests
+pytest tests/                      # all 187 tests
 pytest tests/unit/                 # unit tests only
 pytest tests/integration/          # integration tests only
 pytest -m "not slow"               # skip slow bruteforce tests
