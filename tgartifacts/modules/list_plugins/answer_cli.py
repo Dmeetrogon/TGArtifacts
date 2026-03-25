@@ -11,7 +11,7 @@ def command(plugins_dir: Optional[str]):
 
     manager = PluginManager()
     builtin_dir = Path(__file__).parent.parent.parent / 'plugins'
-    manager.load_from_directory(builtin_dir)
+    manager.load_from_directory(builtin_dir, trusted=True)
 
     if plugins_dir:
         manager.load_from_directory(Path(plugins_dir))

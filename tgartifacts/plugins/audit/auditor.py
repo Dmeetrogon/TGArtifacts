@@ -26,8 +26,6 @@ class AuditReport:
     tdata_path: Path
     findings: List[Finding] = field(default_factory=list)
     passcode_set: bool = False
-    passcode_weak: Optional[bool] = None
-    weak_passcode: Optional[str] = None
     file_permissions_ok: bool = True
     version: int = 0
     accounts_count: int = 0
@@ -41,16 +39,6 @@ class AuditReport:
         return sum(1 for f in self.findings if f.severity == 'WARNING')
 
 
-WEAK_PASSCODES = [
-    '', '0000', '1111', '1234', '12345', '123456', '1234567', '12345678',
-    '123456789', '1234567890', 'password', 'password1', 'qwerty', 'abc123',
-    'letmein', 'admin', 'welcome', 'monkey', 'master', 'dragon', 'login',
-    'princess', 'football', 'shadow', 'sunshine', 'trustno1', 'iloveyou',
-    '0000000', '1111111', '7777777', 'charlie', 'donald', 'password123',
-    '654321', '666666', '121212', '000000', '112233', 'abcdef', 'abcd1234',
-    'qwerty123', 'passw0rd', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm',
-    'test', 'test123', 'pass', 'pass123', 'changeme', 'secret',
-]
 
 
 class Auditor:
@@ -97,31 +85,6 @@ class Auditor:
             title='Passcode is set',
             detail='tdata is protected by a local passcode.',
             d3fend_id='D3-MFA',
-        ))
-
-        for weak in WEAK_PASSCODES:
-            if not weak:
-                continue
-            if self._try_passcode(weak):
-                report.passcode_weak = True
-                report.weak_passcode = weak
-                report.findings.append(Finding(
-                    severity='CRITICAL',
-                    title='Weak passcode detected',
-                    detail=f'Passcode "{weak}" found in top-50 common passwords. '
-                           f'Vulnerable to dictionary attack (T1110.002).',
-                    mitre_id='T1110.002',
-                    remediation='Change passcode to 12+ characters with mixed case, digits, and symbols',
-                    d3fend_id='D3-MFA',
-                ))
-                return
-
-        report.passcode_weak = False
-        report.findings.append(Finding(
-            severity='INFO',
-            title='Passcode is not in top-50 weak list',
-            detail='Passcode was not found in common passwords list. '
-                   'Full dictionary attack still possible at ~3 passwords/s per core.',
         ))
 
     def _check_permissions(self, report: AuditReport) -> None:

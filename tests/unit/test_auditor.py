@@ -5,7 +5,7 @@ import stat
 import pytest
 from pathlib import Path
 
-from tgartifacts.plugins.audit.auditor import Auditor, AuditReport, Finding, WEAK_PASSCODES
+from tgartifacts.plugins.audit.auditor import Auditor, AuditReport, Finding
 
 
 class TestFinding:
@@ -68,7 +68,6 @@ class TestAuditReport:
         """UT-066: Report defaults are sensible."""
         r = AuditReport(tdata_path=Path('.'))
         assert r.passcode_set is False
-        assert r.passcode_weak is None
         assert r.file_permissions_ok is True
         assert r.findings == []
 
@@ -103,10 +102,6 @@ class TestAuditor:
         auditor = Auditor(no_pass_tdata)
         report = auditor.audit()
         assert report.accounts_count >= 1
-
-    def test_weak_passcode_list_not_empty(self):
-        """WEAK_PASSCODES list exists and has entries."""
-        assert len(WEAK_PASSCODES) > 10
 
     def test_version_check(self, no_pass_tdata):
         """Version check produces a finding with D3FEND mapping."""

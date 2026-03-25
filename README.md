@@ -138,29 +138,37 @@ Built-in plugins:
 | Check | Severity | MITRE ATT&CK | D3FEND |
 |-------|----------|---------------|--------|
 | No passcode set | CRITICAL | T1555 | D3-MFA |
-| Weak passcode (top-50 dictionary) | CRITICAL | T1110.002 | D3-MFA |
-| Legacy encryption (weak PBKDF2) | CRITICAL | T1110.002 | D3-DENCR |
-| Outdated TDesktop version | CRITICAL | T1212 | D3-SU |
-| key_datas world-readable | CRITICAL | T1005 | D3-FPE |
-| key_datas group-readable | WARNING | T1005 | D3-FPE |
-| tdata directory world-accessible | WARNING | T1005 | D3-FPE |
-| Auto-lock not configured | WARNING | T1078.001 | D3-AL |
+| Legacy encryption (weak PBKDF2) | CRITICAL | T1110.002 | D3-CH |
+| Outdated TDesktop version | CRITICAL | T1203 | D3-SU |
+| key_datas world-readable | CRITICAL | T1005 | D3-LFP |
+| key_datas group-readable | WARNING | T1005 | D3-LFP |
+| tdata directory world-accessible | WARNING | T1005 | D3-LFP |
+| Auto-lock not configured | WARNING | T1078 | D3-AL |
 | Auto-update disabled | WARNING | T1203 | D3-SU |
 | Multiple accounts detected | WARNING | T1537 | D3-AL |
-| Cache size (>5 GB / >15 GB) | WARNING/CRITICAL | T1005 | D3-FPE |
+| Cache size (>5 GB / >15 GB) | WARNING/CRITICAL | T1005 | D3-LFP |
 | Proxy configured | INFO | T1090 | D3-NTA |
 | Auto-start enabled | INFO | T1547.001 | D3-PSA |
-| Phone number stored locally | INFO | T1005 | D3-DENCR |
+| Phone number stored locally | INFO | T1005 | D3-LFP |
 
 ### Timeline anomaly detection
 
 | Anomaly | Severity | MITRE ATT&CK |
 |---------|----------|---------------|
-| Bulk file access (>10 same second) | WARNING | T1005 |
-| Mass file access (>50 same second) | CRITICAL | T1005 |
-| Future timestamps | WARNING | T1070.006 |
+| Elevated file access (30+ files in 1s) | INFO | T1005 |
+| Bulk file access (100+ files in 2s) | WARNING | T1005 |
+| Mass file access (1000+ files in 5s) | CRITICAL | T1005 |
+| Future timestamps | CRITICAL | T1070.006 |
 | Round timestamps (timestomping) | WARNING | T1070.006 |
-| Key rotation detected (keys_to_destroy) | INFO | T1550.004 |
+| Key rotation detected (keys_to_destroy) | WARNING | T1550.004 |
+
+### Plugin security
+
+Custom plugin directories (`--plugins-dir`) are validated before loading:
+- Directory must be owned by the current user
+- Directory must not be writable by group or others
+
+This prevents arbitrary code execution from shared/world-writable directories.
 
 ## Writing a plugin
 
@@ -236,7 +244,7 @@ Modules are auto-discovered and registered at startup.
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/                      # all 162 tests
+pytest tests/                      # all 183 tests
 pytest tests/unit/                 # unit tests only
 pytest tests/integration/          # integration tests only
 pytest -m "not slow"               # skip slow bruteforce tests

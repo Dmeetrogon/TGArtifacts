@@ -1,7 +1,11 @@
 import importlib.util
+import os
+import stat
 import sys
 from pathlib import Path
 from typing import Dict, Type
+
+import click
 
 from .base import BasePlugin
 
@@ -27,9 +31,33 @@ class PluginManager:
             ):
                 self._plugins[attr.name] = attr
 
-    def load_from_directory(self, directory: Path):
+    @staticmethod
+    def _check_directory_permissions(directory: Path) -> None:
+        if os.name == 'nt':
+            return
+        try:
+            st = directory.stat()
+            mode = st.st_mode
+            if bool(mode & stat.S_IWGRP) or bool(mode & stat.S_IWOTH):
+                raise PermissionError(
+                    f"Plugin directory {directory} is writable by group/others "
+                    f"(permissions: {oct(mode)[-3:]}). "
+                    f"Fix: chmod 755 {directory}"
+                )
+            if st.st_uid != os.getuid():
+                raise PermissionError(
+                    f"Plugin directory {directory} is not owned by current user "
+                    f"(owner uid: {st.st_uid}, current uid: {os.getuid()}). "
+                )
+        except OSError as e:
+            raise PermissionError(f"Cannot stat plugin directory {directory}: {e}")
+
+    def load_from_directory(self, directory: Path, trusted: bool = False):
         if not directory.exists():
             return
+
+        if not trusted:
+            self._check_directory_permissions(directory)
 
         _skip = {"__init__.py", "base.py", "manager.py"}
         for file in directory.glob("*.py"):

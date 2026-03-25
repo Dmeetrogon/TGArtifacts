@@ -42,9 +42,6 @@ def run(context: PluginContext) -> Dict[str, Any]:
     click.echo(f"  Version: {report.version}")
     click.echo(f"  Accounts: {report.accounts_count}")
     click.echo(f"  Passcode set: {'yes' if report.passcode_set else 'no'}")
-    if report.passcode_weak is not None:
-        weak_str = click.style('WEAK', fg='red') if report.passcode_weak else click.style('not in top-50', fg='green')
-        click.echo(f"  Passcode strength: {weak_str}")
     click.echo(f"  Files analyzed: {timeline.total_files}")
     if timeline.earliest and timeline.latest:
         click.echo(f"  Activity period: {timeline.earliest:%Y-%m-%d} — {timeline.latest:%Y-%m-%d}")
@@ -70,7 +67,6 @@ def run(context: PluginContext) -> Dict[str, Any]:
         "version": report.version,
         "accounts": report.accounts_count,
         "passcode_set": report.passcode_set,
-        "passcode_weak": report.passcode_weak,
         "findings_critical": report.critical_count,
         "findings_warning": report.warning_count,
         "findings_total": total_findings,
