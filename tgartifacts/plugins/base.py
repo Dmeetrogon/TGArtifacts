@@ -15,9 +15,9 @@ class PluginContext:
 
 
 class BasePlugin(ABC):
-    name: str = "unnamed"
+    name: str = "base_plugin"
     description: str = ""
-    version: str = "0.1.0"
+    version: str = "0.0.1"
 
     @abstractmethod
     def run(self, context: PluginContext) -> Dict[str, Any]:
